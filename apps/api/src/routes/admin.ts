@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db/prisma.js";
+import type { Prisma } from "@blobby/database";
 import { getDailyDrawWriteContract, serializeBigInts } from "../services/dailyDrawContract.js";
 import { requireAdmin } from "./adminAuth.js";
 
@@ -103,7 +104,7 @@ async function audit(action: string, actor: string | undefined, payload: unknown
     data: {
       action,
       actor: actor || "unknown",
-      payload: serializeBigInts(payload)
+      payload: serializeBigInts(payload) as Prisma.InputJsonValue
     }
   });
 }

@@ -14,3 +14,5 @@ typechain-types/
 .DS_Store
 
 apps/api/prisma/migrations/*/migration_lock.toml
+contracts/types/
+packages/database/src/generated/

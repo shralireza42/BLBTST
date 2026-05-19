@@ -1,10 +1,12 @@
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
-import pinoHttp from "pino-http";
+import pinoHttpImport from "pino-http";
 import { ZodError } from "zod";
 import { env } from "./config/env.js";
 import { logger } from "./logger.js";
+
+const pinoHttp = pinoHttpImport as unknown as (options: { logger: typeof logger }) => express.RequestHandler;
 import { adminRouter } from "./routes/admin.js";
 import { publicRouter } from "./routes/public.js";
 

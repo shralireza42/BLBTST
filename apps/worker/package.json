@@ -10,11 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@prisma/client": "latest",
     "dotenv": "latest",
     "ethers": "latest",
     "pino": "latest",
-    "zod": "latest"
+    "zod": "latest",
+    "@blobby/database": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "latest",

@@ -1,15 +1,18 @@
-import "@nomicfoundation/hardhat-toolbox";
 import dotenv from "dotenv";
-import { HardhatUserConfig } from "hardhat/config";
+import hardhatEthers from "@nomicfoundation/hardhat-ethers";
+import hardhatNetworkHelpers from "@nomicfoundation/hardhat-network-helpers";
+import { defineConfig } from "hardhat/config";
 
 dotenv.config();
 
 const deployerPrivateKey = process.env.DEPLOYER_PRIVATE_KEY;
 
-const config: HardhatUserConfig = {
+export default defineConfig({
+  plugins: [hardhatEthers, hardhatNetworkHelpers],
   solidity: {
     version: "0.8.24",
     settings: {
+      viaIR: true,
       optimizer: {
         enabled: true,
         runs: 200
@@ -17,20 +20,15 @@ const config: HardhatUserConfig = {
     }
   },
   networks: {
-    hardhat: {
-      chainId: 31337
+    hardhatMainnet: {
+      type: "edr-simulated",
+      chainType: "l1"
     },
     bsc: {
+      type: "http",
+      chainType: "l1",
       url: process.env.BSC_RPC_URL || "https://bsc-dataseed.binance.org/",
-      chainId: Number(process.env.BSC_CHAIN_ID || 56),
       accounts: deployerPrivateKey ? [deployerPrivateKey] : []
     }
-  },
-  etherscan: {
-    apiKey: {
-      bsc: process.env.BSCSCAN_API_KEY || ""
-    }
   }
-};
-
-export default config;
+});

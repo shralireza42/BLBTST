@@ -13,7 +13,9 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "prisma:generate": "npm run prisma:generate -w apps/api"
+    "prisma:generate": "npm run prisma:generate -w apps/api",
+    "prebuild": "npm run prisma:generate",
+    "pretypecheck": "npm run prisma:generate"
   },
   "devDependencies": {
     "typescript": "latest"

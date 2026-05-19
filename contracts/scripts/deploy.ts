@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { ethers } from "hardhat";
+import { network } from "hardhat";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -15,6 +15,7 @@ function optionalBigInt(name: string, fallback: bigint): bigint {
 }
 
 async function main() {
+  const { ethers } = await network.connect("bsc");
   const [deployer] = await ethers.getSigners();
 
   const oracle = await ethers.deployContract("BlobbyUsdOracle", [

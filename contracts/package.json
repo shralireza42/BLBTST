@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "hardhat compile",
-    "test": "hardhat test",
+    "test": "hardhat run scripts/verify-daily-draw.ts",
     "typecheck": "tsc --noEmit",
     "deploy:bsc": "hardhat run scripts/deploy.ts --network bsc"
   },
@@ -14,7 +14,8 @@
     "dotenv": "latest"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "latest",
+    "@nomicfoundation/hardhat-ethers": "^4.0.11",
+    "@nomicfoundation/hardhat-network-helpers": "^3.0.8",
     "hardhat": "latest",
     "typescript": "latest"
   }

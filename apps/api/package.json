@@ -12,7 +12,6 @@
     "prisma:migrate": "prisma migrate deploy"
   },
   "dependencies": {
-    "@prisma/client": "latest",
     "cors": "latest",
     "dotenv": "latest",
     "ethers": "latest",
@@ -20,7 +19,8 @@
     "helmet": "latest",
     "pino": "latest",
     "pino-http": "latest",
-    "zod": "latest"
+    "zod": "latest",
+    "@blobby/database": "0.1.0"
   },
   "devDependencies": {
     "@types/cors": "latest",

@@ -2,7 +2,7 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "types": ["node", "mocha"]
+    "types": ["node"]
   },
   "include": ["hardhat.config.ts", "scripts/**/*.ts", "test/**/*.ts"]
 }

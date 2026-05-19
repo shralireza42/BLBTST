@@ -1,4 +1,5 @@
 import { BrowserProvider, Contract, JsonRpcSigner, Provider } from "ethers";
+import type { Eip1193Provider } from "ethers";
 
 export const dailyDrawAbi = [
   "function currentRoundId() view returns (uint256)",
@@ -31,7 +32,7 @@ export function getBlobbyApprovalContract(address: string, runner: Provider | Js
   return new Contract(address, erc20ApprovalAbi, runner);
 }
 
-export async function getBrowserSigner(ethereum: unknown) {
+export async function getBrowserSigner(ethereum: Eip1193Provider) {
   const provider = new BrowserProvider(ethereum);
   return provider.getSigner();
 }

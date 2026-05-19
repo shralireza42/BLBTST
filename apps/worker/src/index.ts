@@ -1,10 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@blobby/database";
 import { Contract, JsonRpcProvider, Wallet } from "ethers";
 import pino from "pino";
 import { dailyDrawAbi } from "./dailyDrawAbi.js";
 import { env } from "./env.js";
 
-const prisma = new PrismaClient();
 const logger = pino({ level: env.LOG_LEVEL });
 const provider = new JsonRpcProvider(env.BSC_RPC_URL, env.BSC_CHAIN_ID);
 const signer = env.WORKER_PRIVATE_KEY ? new Wallet(env.WORKER_PRIVATE_KEY, provider) : undefined;
