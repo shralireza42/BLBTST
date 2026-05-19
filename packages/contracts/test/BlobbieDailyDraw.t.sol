@@ -30,7 +30,10 @@ contract BlobbieDailyDrawTest {
             address(this),
             address(token),
             IBlobbieJackpotVault.JackpotConfig({
-                triggerAmount: 100 ether, contributionBps: 1_000, treasury: address(this)
+                thresholdUsdE18: 100_000e18,
+                contributionBps: 1_000,
+                priceAdapter: address(adapter),
+                treasury: address(this)
             })
         );
         draw = new BlobbieDailyDraw(

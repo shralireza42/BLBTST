@@ -33,7 +33,12 @@ contract DeployBlobbieDraw {
         BlobbieJackpotVault jackpotVault = new BlobbieJackpotVault(
             params.admin,
             params.blobbyToken,
-            IBlobbieJackpotVault.JackpotConfig({ triggerAmount: 0, contributionBps: 1_000, treasury: params.treasury })
+            IBlobbieJackpotVault.JackpotConfig({
+                thresholdUsdE18: 0,
+                contributionBps: 1_000,
+                priceAdapter: address(priceAdapter),
+                treasury: params.treasury
+            })
         );
 
         BlobbieTreasuryRouter treasuryRouter = new BlobbieTreasuryRouter(
