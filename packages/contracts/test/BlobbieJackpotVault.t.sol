@@ -8,6 +8,7 @@ import { MockBlobbieToken } from "../src/mocks/MockBlobbieToken.sol";
 import { MockPriceFeed } from "../src/mocks/MockPriceFeed.sol";
 
 interface Vm {
+    function expectRevert() external;
     function expectRevert(bytes4 selector) external;
 }
 
@@ -138,6 +139,70 @@ contract BlobbieJackpotVaultTest {
 
         vm.expectRevert(IBlobbieJackpotVault.SettlementAlreadyCompleted.selector);
         vault.settleJackpotWinner(cycleId, 0);
+    }
+
+    function testPausedVaultRejectsSensitiveActions() external {
+        (BlobbieJackpotVault vault,, MockBlobbieToken token) = _deploy();
+        token.mint(address(this), 1 ether);
+        token.approve(address(vault), 1 ether);
+        vault.pause();
+
+        vm.expectRevert();
+        vault.contributeFromDraw(1 ether);
+
+        vm.expectRevert();
+        vault.recordEligibleTickets(ALICE, 1);
+    }
+
+    function testFuzzContributionReserveAccounting(uint96 firstAmount, uint96 secondAmount) external {
+        (BlobbieJackpotVault vault,, MockBlobbieToken token) = _deploy();
+        uint256 first = 1 + (uint256(firstAmount) % 1_000_000 ether);
+        uint256 second = 1 + (uint256(secondAmount) % 1_000_000 ether);
+        token.mint(address(this), first + second);
+        token.approve(address(vault), first + second);
+
+        vault.contributeFromDraw(first);
+        vault.contributeFromDraw(second);
+
+        IBlobbieJackpotVault.JackpotCycle memory cycle = vault.getCycle(vault.currentCycleId());
+        require(vault.reserve() == first + second, "reserve mismatch");
+        require(cycle.reserveBalance == first + second, "cycle reserve mismatch");
+        require(token.balanceOf(address(vault)) == vault.reserve(), "vault silently lost funds");
+    }
+
+    function testFuzzExcludedTicketsNeverIncreaseEligibility(uint96 referral, uint96 promo, uint96 task, uint96 topUp)
+        external
+    {
+        (BlobbieJackpotVault vault,,) = _deploy();
+        uint256 a = 1 + (uint256(referral) % 10_000);
+        uint256 b = 1 + (uint256(promo) % 10_000);
+        uint256 c = 1 + (uint256(task) % 10_000);
+        uint256 d = 1 + (uint256(topUp) % 10_000);
+
+        vault.recordExcludedTickets(ALICE, a, IBlobbieJackpotVault.TicketExclusion.Referral);
+        vault.recordExcludedTickets(ALICE, b, IBlobbieJackpotVault.TicketExclusion.Promotional);
+        vault.recordExcludedTickets(ALICE, c, IBlobbieJackpotVault.TicketExclusion.TaskReward);
+        vault.recordExcludedTickets(ALICE, d, IBlobbieJackpotVault.TicketExclusion.OperationalTopUp);
+
+        IBlobbieJackpotVault.JackpotCycle memory cycle = vault.getCycle(vault.currentCycleId());
+        require(cycle.eligibleTicketCount == 0, "excluded tickets counted");
+        require(vault.entryRangeCount(vault.currentCycleId()) == 0, "excluded entries created");
+    }
+
+    function testInvariantJackpotCannotPayTwiceSameCycle() external {
+        (BlobbieJackpotVault vault,, MockBlobbieToken token) = _deploy();
+
+        token.mint(address(this), THRESHOLD);
+        token.approve(address(vault), THRESHOLD);
+        vault.contributeFromDraw(THRESHOLD);
+        vault.recordEligibleTickets(ALICE, 1);
+        uint256 cycleId = vault.requestJackpotRandomness(1, 99);
+        vault.settleJackpotWinner(cycleId, 0);
+        uint256 aliceBalance = token.balanceOf(ALICE);
+
+        vm.expectRevert(IBlobbieJackpotVault.SettlementAlreadyCompleted.selector);
+        vault.settleJackpotWinner(cycleId, 0);
+        require(token.balanceOf(ALICE) == aliceBalance, "second payout occurred");
     }
 
     function _deploy()

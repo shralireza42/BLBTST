@@ -8,6 +8,7 @@ import { MockPriceFeed } from "../src/mocks/MockPriceFeed.sol";
 
 interface Vm {
     function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData) external;
+    function expectRevert() external;
     function expectRevert(bytes4 selector) external;
     function warp(uint256 newTimestamp) external;
 }
@@ -98,6 +99,34 @@ contract BlobbiePriceAdapterTest {
         vm.expectEmit(false, false, false, true);
         emit MaxPriceAgeUpdated(2 hours);
         adapter.setMaxPriceAge(2 hours);
+    }
+
+    function testPausedAdapterRejectsPricingReads() external {
+        (, BlobbiePriceAdapter adapter,) = _deployAdapter(18, 1e18, 1 hours, 0);
+        adapter.pause();
+
+        vm.expectRevert();
+        adapter.getTicketPriceInBlobbie();
+    }
+
+    function testFuzzUsdQuoteScalesLinearly(uint96 usdAmount, uint96 price) external {
+        uint256 boundedUsd = 1 + (uint256(usdAmount) % 1_000_000e18);
+        uint256 boundedPrice = 1e12 + (uint256(price) % 1_000e18);
+        (, BlobbiePriceAdapter adapter,) = _deployAdapter(18, int256(boundedPrice), 1 hours, 0);
+
+        uint256 expected = (boundedUsd * 1 ether) / boundedPrice;
+        require(adapter.getBlobbieAmountForUsd(boundedUsd) == expected, "quote mismatch");
+    }
+
+    function testFuzzOracleDecimalNormalization(uint8 decimals, uint96 answer) external {
+        uint8 boundedDecimals = decimals % 19;
+        uint256 boundedAnswer = 1 + (uint256(answer) % 1_000_000e18);
+        (, BlobbiePriceAdapter adapter,) = _deployAdapter(boundedDecimals, int256(boundedAnswer), 1 hours, 0);
+
+        uint256 expected = boundedDecimals > 18
+            ? boundedAnswer / (10 ** (boundedDecimals - 18))
+            : boundedAnswer * (10 ** (18 - boundedDecimals));
+        require(adapter.getBlobbieUsdPriceE18() == expected, "normalized price mismatch");
     }
 
     function _deployAdapter(uint8 feedDecimals, int256 answer, uint256 maxPriceAge, uint256 manualFallbackPriceE18)

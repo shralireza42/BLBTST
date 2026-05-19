@@ -166,6 +166,103 @@ contract BlobbieDailyDrawTest {
         alice.buy(draw, token, 1, 1 ether);
     }
 
+    function testFuzzPaidTicketCountControlsThreshold(uint16 rawQuantity) external {
+        uint256 quantity = 1 + (uint256(rawQuantity) % 299);
+        (BlobbieDailyDraw draw,,, MockBlobbieToken token,,) = _deploy();
+        Buyer alice = _fundBuyer(token, 300 ether);
+        alice.buy(draw, token, quantity, quantity * 1 ether);
+
+        IBlobbieDailyDraw.Round memory round = draw.getRound(1);
+        require(round.eligibleTicketCount == quantity, "paid ticket count mismatch");
+        require(round.status == IBlobbieDailyDraw.RoundStatus.OPEN, "closed before 300 paid tickets");
+
+        alice.buy(draw, token, 300 - quantity, (300 - quantity) * 1 ether);
+        round = draw.getRound(1);
+        require(round.eligibleTicketCount == 300, "threshold count mismatch");
+        require(round.status == IBlobbieDailyDraw.RoundStatus.CLOSED, "300 paid tickets did not close");
+    }
+
+    function testFuzzOperationalTopUpNeverIncreasesEntries(uint16 rawPaidTickets) external {
+        uint256 paidTickets = 1 + (uint256(rawPaidTickets) % 299);
+        (BlobbieDailyDraw draw,,, MockBlobbieToken token,,) = _deploy();
+        Buyer alice = _fundBuyer(token, paidTickets * 1 ether);
+        alice.buy(draw, token, paidTickets, paidTickets * 1 ether);
+        vm.warp(block.timestamp + 24 hours + 1);
+        draw.closeRoundByTimeout(1);
+
+        uint256 beforeEligible = draw.getRound(1).eligibleTicketCount;
+        uint256 beforeParticipants = draw.participantCount(1);
+        uint256 beforeRanges = draw.ticketRangeCount(1);
+        _topUp(draw, token, (300 - paidTickets) * 1 ether);
+
+        require(draw.getRound(1).eligibleTicketCount == beforeEligible, "topup changed eligible count");
+        require(draw.participantCount(1) == beforeParticipants, "topup changed participants");
+        require(draw.ticketRangeCount(1) == beforeRanges, "topup changed ticket ranges");
+    }
+
+    function testFuzzInvariantWalletCannotWinMoreThanOnce(uint256 randomness) external {
+        (BlobbieDailyDraw draw,,, MockBlobbieToken token, MockVRFCoordinator vrf,) = _deploy();
+        Buyer alice = _fundBuyer(token, 100 ether);
+        Buyer bob = _fundBuyer(token, 100 ether);
+        Buyer carol = _fundBuyer(token, 100 ether);
+        alice.buy(draw, token, 100, 100 ether);
+        bob.buy(draw, token, 100, 100 ether);
+        carol.buy(draw, token, 100, 100 ether);
+
+        _requestFulfillSettle(draw, vrf, 1, randomness);
+
+        for (uint256 i = 0; i < 150; i++) {
+            address winner = draw.winnerAtSlot(1, i);
+            if (winner == address(0)) continue;
+            for (uint256 j = i + 1; j < 150; j++) {
+                require(draw.winnerAtSlot(1, j) != winner, "wallet won twice");
+            }
+        }
+    }
+
+    function testInvariantPrizeAccountingDoesNotExceedAvailableRoundFunds() external {
+        (BlobbieDailyDraw draw, BlobbieJackpotVault vault,, MockBlobbieToken token, MockVRFCoordinator vrf,) = _deploy();
+        Buyer alice = _fundBuyer(token, 300 ether);
+        alice.buy(draw, token, 300, 300 ether);
+        uint256 balanceBeforeSettlement = token.balanceOf(address(draw));
+
+        _requestFulfillSettle(draw, vrf, 1, 0);
+
+        IBlobbieDailyDraw.Round memory round = draw.getRound(1);
+        uint256 paidPrizes;
+        for (uint256 i = 0; i < 150; i++) {
+            paidPrizes += draw.prizeAtSlot(1, i);
+        }
+        uint256 accounted = paidPrizes + round.jackpotAllocated + round.freeEntryReserveAllocated
+            + round.burnTreasuryAllocated + round.prizePool;
+        require(accounted == balanceBeforeSettlement, "round accounting mismatch");
+        require(token.balanceOf(address(draw)) == round.prizePool + draw.freeEntryReserveBalance(), "draw funds lost");
+        require(token.balanceOf(address(vault)) == vault.reserve(), "vault funds lost");
+    }
+
+    function testInvariantContractNeverSilentlyLosesFundsAfterTimeoutTopUp() external {
+        (BlobbieDailyDraw draw, BlobbieJackpotVault vault,, MockBlobbieToken token, MockVRFCoordinator vrf,) = _deploy();
+        Buyer alice = _fundBuyer(token, 1 ether);
+        alice.buy(draw, token, 1, 1 ether);
+        vm.warp(block.timestamp + 24 hours + 1);
+        draw.closeRoundByTimeout(1);
+        _topUp(draw, token, 299 ether);
+
+        uint256 balanceBeforeSettlement = token.balanceOf(address(draw));
+        _requestFulfillSettle(draw, vrf, 1, 0);
+
+        IBlobbieDailyDraw.Round memory round = draw.getRound(1);
+        uint256 paidPrizes;
+        for (uint256 i = 0; i < 150; i++) {
+            paidPrizes += draw.prizeAtSlot(1, i);
+        }
+        uint256 accounted = paidPrizes + round.jackpotAllocated + round.freeEntryReserveAllocated
+            + round.burnTreasuryAllocated + round.prizePool;
+        require(accounted == balanceBeforeSettlement, "timeout accounting mismatch");
+        require(token.balanceOf(address(draw)) == round.prizePool + draw.freeEntryReserveBalance(), "draw funds lost");
+        require(token.balanceOf(address(vault)) == vault.reserve(), "vault funds lost");
+    }
+
     function _deploy()
         internal
         returns (
