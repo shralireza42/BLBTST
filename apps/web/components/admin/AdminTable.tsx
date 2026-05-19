@@ -1,0 +1,1 @@
+import { Card } from "../ui/Card"; export function AdminTable({ title, rows }: { title:string; rows:string[] }){return <Card><h2 className="display-text text-2xl">{title}</h2><div className="mt-4 grid gap-2">{rows.map(r=><div key={r} className="rounded-xl bg-white p-3 border-2 border-[#020202]">{r}</div>)}</div></Card>}

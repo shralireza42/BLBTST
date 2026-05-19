@@ -6,6 +6,7 @@
     "contracts",
     "apps/api",
     "apps/worker",
+    "apps/web",
     "packages/*"
   ],
   "scripts": {
