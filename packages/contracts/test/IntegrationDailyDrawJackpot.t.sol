@@ -32,7 +32,11 @@ contract IntegrationDailyDrawJackpotTest {
             address(adapter),
             address(vault),
             IBlobbieDailyDraw.DrawConfig({
-                ticketThreshold: 300, roundDuration: 24 hours, ticketUsdPrice8: 1e8, jackpotContributionBps: 1_000
+                ticketThreshold: 300,
+                roundDuration: 24 hours,
+                ticketUsdPriceE18: 1e18,
+                jackpotContributionBps: 1_000,
+                treasury: address(this)
             }),
             IBlobbieDailyDraw.VrfConfig({
                 coordinator: address(vrf),

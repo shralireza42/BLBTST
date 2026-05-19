@@ -32,6 +32,14 @@ contract BlobbieDailyDraw is AccessControl, Pausable, ReentrancyGuard, IBlobbieD
     bytes32 public constant TOP_UP_ROLE = keccak256("TOP_UP_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
+    uint256 public constant FIRST_PRIZE_USD_E18 = 102e18;
+    uint256 public constant SECOND_TIER_PRIZE_USD_E18 = 4e18;
+    uint256 public constant THIRD_TIER_PRIZE_USD_E18 = 1e18;
+    uint256 public constant FREE_ENTRY_RESERVE_USD_E18 = 10e18;
+    uint256 public constant JACKPOT_ALLOCATION_USD_E18 = 5e18;
+    uint256 public constant BURN_TREASURY_ALLOCATION_USD_E18 = 7e18;
+    uint16 public constant MAX_WINNER_SLOTS = 150;
+
     IERC20 public immutable blobbyToken;
     IBlobbiePriceAdapter public priceAdapter;
     IBlobbieJackpotVault public jackpotVault;
@@ -39,12 +47,19 @@ contract BlobbieDailyDraw is AccessControl, Pausable, ReentrancyGuard, IBlobbieD
     DrawConfig public drawConfig;
     VrfConfig public vrfConfig;
     uint256 public override currentRoundId;
+    uint256 public freeEntryReserveBalance;
+    uint256 public burnTreasuryReserveBalance;
 
     mapping(uint256 roundId => Round round) internal _rounds;
     mapping(uint256 roundId => TicketRange[] ranges) internal _ticketRanges;
     mapping(uint256 requestId => uint256 roundId) public requestToRound;
     mapping(uint256 roundId => mapping(address account => bool entered)) public hasEligibleEntry;
+    mapping(uint256 roundId => mapping(address account => bool won)) public hasWonRound;
+    mapping(uint256 roundId => mapping(uint256 slot => address winner)) public winnerAtSlot;
+    mapping(uint256 roundId => mapping(uint256 slot => uint256 amount)) public prizeAtSlot;
     mapping(uint256 roundId => address[] accounts) internal _participants;
+    mapping(address account => bool banned) public bannedWallet;
+    mapping(address account => bool fraudRejected) public fraudRejectedWallet;
 
     constructor(
         address admin,
@@ -64,14 +79,16 @@ contract BlobbieDailyDraw is AccessControl, Pausable, ReentrancyGuard, IBlobbieD
         blobbyToken = IERC20(blobbyToken_);
         priceAdapter = IBlobbiePriceAdapter(priceAdapter_);
         jackpotVault = IBlobbieJackpotVault(jackpotVault_);
-        _setDrawConfig(initialDrawConfig);
-        _setVrfConfig(initialVrfConfig);
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(DRAW_ADMIN_ROLE, admin);
         _grantRole(OPERATOR_ROLE, admin);
         _grantRole(TOP_UP_ROLE, admin);
         _grantRole(PAUSER_ROLE, admin);
+
+        _setDrawConfig(initialDrawConfig);
+        _setVrfConfig(initialVrfConfig);
+        _startRound();
     }
 
     function setDrawConfig(DrawConfig calldata newConfig) external onlyRole(DRAW_ADMIN_ROLE) {
@@ -88,6 +105,13 @@ contract BlobbieDailyDraw is AccessControl, Pausable, ReentrancyGuard, IBlobbieD
         jackpotVault = IBlobbieJackpotVault(jackpotVault_);
     }
 
+    function setWalletStatus(address account, bool banned, bool fraudRejected) external onlyRole(DRAW_ADMIN_ROLE) {
+        if (account == address(0)) revert InvalidConfig();
+        bannedWallet[account] = banned;
+        fraudRejectedWallet[account] = fraudRejected;
+        emit WalletStatusUpdated(account, banned, fraudRejected);
+    }
+
     function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
@@ -96,7 +120,223 @@ contract BlobbieDailyDraw is AccessControl, Pausable, ReentrancyGuard, IBlobbieD
         _unpause();
     }
 
+    function startNextRound() public onlyRole(OPERATOR_ROLE) whenNotPaused returns (uint256 roundId) {
+        RoundStatus status = _rounds[currentRoundId].status;
+        if (status != RoundStatus.FINALIZED && currentRoundId != 0) revert InvalidRound();
+        return _startRound();
+    }
+
     function openRound() external onlyRole(OPERATOR_ROLE) whenNotPaused returns (uint256 roundId) {
+        return startNextRound();
+    }
+
+    function buyTickets(uint256 quantity, uint256 maxBlobbieCost)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (uint256 amountPaid)
+    {
+        if (quantity == 0 || quantity > type(uint32).max) revert InvalidQuantity();
+        if (bannedWallet[msg.sender] || fraudRejectedWallet[msg.sender]) revert WalletExcluded();
+
+        Round storage round = _rounds[currentRoundId];
+        if (round.status != RoundStatus.OPEN) revert RoundNotOpen();
+        if (block.timestamp >= round.expiresAt) revert RoundNotOpen();
+        if (uint256(round.eligibleTicketCount) + quantity > drawConfig.ticketThreshold) revert InvalidQuantity();
+
+        amountPaid = quoteTickets(quantity);
+        if (amountPaid > maxBlobbieCost) revert InvalidPayment();
+
+        blobbyToken.safeTransferFrom(msg.sender, address(this), amountPaid);
+        jackpotVault.recordEligibleTickets(msg.sender, quantity);
+
+        uint256 start = round.eligibleTicketCount;
+        uint256 end = start + quantity;
+        round.eligibleTicketCount = uint32(end);
+        round.grossTicketRevenue += amountPaid;
+        round.prizePool += amountPaid;
+        _ticketRanges[currentRoundId].push(
+            TicketRange({
+                account: msg.sender, startInclusive: uint32(start), endExclusive: uint32(end), amountPaid: amountPaid
+            })
+        );
+
+        if (!hasEligibleEntry[currentRoundId][msg.sender]) {
+            hasEligibleEntry[currentRoundId][msg.sender] = true;
+            _participants[currentRoundId].push(msg.sender);
+            round.uniqueWalletCount += 1;
+        }
+
+        emit TicketPurchased(currentRoundId, msg.sender, quantity, start, end, amountPaid);
+
+        if (round.eligibleTicketCount == drawConfig.ticketThreshold) {
+            _closeRound(currentRoundId);
+        }
+    }
+
+    function closeRoundByThreshold(uint256 roundId) public onlyRole(OPERATOR_ROLE) whenNotPaused {
+        Round storage round = _rounds[roundId];
+        if (round.status != RoundStatus.OPEN) revert RoundNotOpen();
+        if (round.eligibleTicketCount < drawConfig.ticketThreshold) revert RoundNotClosable();
+        _closeRound(roundId);
+    }
+
+    function closeRoundByTimeout(uint256 roundId) external onlyRole(OPERATOR_ROLE) whenNotPaused {
+        Round storage round = _rounds[roundId];
+        if (round.status != RoundStatus.OPEN) revert RoundNotOpen();
+        if (block.timestamp < round.expiresAt) revert RoundNotClosable();
+        _closeRound(roundId);
+        uint256 requiredTopUp = _requiredOperationalTopUp(roundId);
+        if (requiredTopUp != 0) {
+            round.topUpRequired = requiredTopUp;
+            emit OperationalTopUpRequired(roundId, requiredTopUp);
+        }
+    }
+
+    function provideOperationalTopUp(uint256 roundId, uint256 amount)
+        public
+        onlyRole(TOP_UP_ROLE)
+        nonReentrant
+        whenNotPaused
+    {
+        if (amount == 0) revert InvalidPayment();
+        Round storage round = _rounds[roundId];
+        if (round.status != RoundStatus.CLOSED) revert InvalidRound();
+        if (round.topUpRequired == 0) revert InvalidPayment();
+
+        blobbyToken.safeTransferFrom(msg.sender, address(this), amount);
+        round.operationalTopUp += amount;
+        round.prizePool += amount;
+        round.topUpRequired = amount >= round.topUpRequired ? 0 : round.topUpRequired - amount;
+        emit OperationalTopUpReceived(roundId, msg.sender, amount);
+    }
+
+    function topUpRound(uint256 roundId, uint256 amount) external {
+        provideOperationalTopUp(roundId, amount);
+    }
+
+    function requestRandomness(uint256 roundId)
+        public
+        onlyRole(OPERATOR_ROLE)
+        whenNotPaused
+        returns (uint256 requestId)
+    {
+        Round storage round = _rounds[roundId];
+        if (round.status != RoundStatus.CLOSED) revert InvalidRound();
+        if (round.topUpRequired != 0) revert TopUpIncomplete(round.topUpRequired);
+        if (round.eligibleTicketCount == 0) revert NoEligibleTickets();
+
+        requestId = IVRFCoordinatorV2PlusLike(vrfConfig.coordinator)
+            .requestRandomWords(
+                IVRFCoordinatorV2PlusLike.RandomWordsRequest({
+                keyHash: vrfConfig.keyHash,
+                subId: vrfConfig.subscriptionId,
+                requestConfirmations: vrfConfig.requestConfirmations,
+                callbackGasLimit: vrfConfig.callbackGasLimit,
+                numWords: 1,
+                extraArgs: vrfConfig.extraArgs
+            })
+            );
+        round.status = RoundStatus.VRF_REQUESTED;
+        round.vrfRequestId = requestId;
+        requestToRound[requestId] = roundId;
+        emit RandomnessRequested(roundId, requestId);
+    }
+
+    function closeRound(uint256 roundId) external onlyRole(OPERATOR_ROLE) whenNotPaused returns (uint256 requestId) {
+        closeRoundByThreshold(roundId);
+        return requestRandomness(roundId);
+    }
+
+    function rawFulfillRandomWords(uint256 requestId, uint256[] calldata randomWords)
+        external
+        nonReentrant
+        whenNotPaused
+    {
+        if (msg.sender != vrfConfig.coordinator) revert UnauthorizedCoordinator();
+        uint256 roundId = requestToRound[requestId];
+        if (roundId == 0) revert UnknownRequest();
+        if (randomWords.length == 0) revert NoRandomness();
+
+        Round storage round = _rounds[roundId];
+        if (round.status != RoundStatus.VRF_REQUESTED) revert InvalidRound();
+        round.status = RoundStatus.DRAWING;
+        round.randomness = randomWords[0];
+        emit RandomnessFulfilled(roundId, requestId, randomWords[0]);
+    }
+
+    function settleRound(uint256 roundId) external onlyRole(OPERATOR_ROLE) nonReentrant whenNotPaused {
+        Round storage round = _rounds[roundId];
+        if (round.status == RoundStatus.FINALIZED) revert DuplicateSettlement();
+        if (round.status != RoundStatus.DRAWING) revert InvalidRound();
+
+        round.status = RoundStatus.SETTLING;
+        uint256 unusedPrizeUsdE18;
+        uint16 winnersPaid;
+
+        for (uint16 slot = 0; slot < MAX_WINNER_SLOTS; slot++) {
+            uint256 prizeUsdE18 = _slotPrizeUsdE18(slot);
+            address winner = _selectWinner(roundId, uint256(keccak256(abi.encode(round.randomness, slot))));
+            if (winner == address(0)) {
+                unusedPrizeUsdE18 += prizeUsdE18;
+                continue;
+            }
+
+            uint256 prizeAmount = priceAdapter.getBlobbieAmountForUsd(prizeUsdE18);
+            if (prizeAmount > round.prizePool) {
+                round.status = RoundStatus.FAILED_NEEDS_ADMIN_REVIEW;
+                emit RoundFailed(roundId, "INSUFFICIENT_PRIZE_POOL");
+                return;
+            }
+            round.prizePool -= prizeAmount;
+            hasWonRound[roundId][winner] = true;
+            winnerAtSlot[roundId][slot] = winner;
+            prizeAtSlot[roundId][slot] = prizeAmount;
+            winnersPaid += 1;
+            blobbyToken.safeTransfer(winner, prizeAmount);
+            emit WinnerSelected(roundId, slot, winner, prizeAmount);
+            emit PrizePaid(roundId, slot, winner, prizeAmount);
+        }
+
+        round.winnersPaid = winnersPaid;
+        _allocateReserves(roundId, unusedPrizeUsdE18);
+        if (round.status == RoundStatus.FAILED_NEEDS_ADMIN_REVIEW) return;
+        round.status = RoundStatus.FINALIZED;
+        emit RoundFinalized(roundId);
+    }
+
+    function getRound(uint256 roundId) external view returns (Round memory round) {
+        return _rounds[roundId];
+    }
+
+    function ticketRangeCount(uint256 roundId) external view returns (uint256) {
+        return _ticketRanges[roundId].length;
+    }
+
+    function getTicketRange(uint256 roundId, uint256 index) external view returns (TicketRange memory) {
+        return _ticketRanges[roundId][index];
+    }
+
+    function participantCount(uint256 roundId) external view returns (uint256) {
+        return _participants[roundId].length;
+    }
+
+    function getParticipant(uint256 roundId, uint256 index) external view returns (address) {
+        return _participants[roundId][index];
+    }
+
+    function requiredOperationalTopUp(uint256 roundId) public view returns (uint256 amount) {
+        Round storage round = _rounds[roundId];
+        if (round.topUpRequired != 0) return round.topUpRequired;
+        return _requiredOperationalTopUp(roundId);
+    }
+
+    function quoteTickets(uint256 quantity) public view returns (uint256 amount) {
+        if (quantity == 0) revert InvalidQuantity();
+        return priceAdapter.getBlobbieAmountForUsd(quantity * drawConfig.ticketUsdPriceE18);
+    }
+
+    function _startRound() internal returns (uint256 roundId) {
         roundId = ++currentRoundId;
         uint64 openedAt = uint64(block.timestamp);
         uint64 expiresAt = openedAt + drawConfig.roundDuration;
@@ -111,112 +351,112 @@ contract BlobbieDailyDraw is AccessControl, Pausable, ReentrancyGuard, IBlobbieD
             operationalTopUp: 0,
             jackpotContribution: 0,
             prizePool: 0,
+            topUpRequired: 0,
             vrfRequestId: 0,
-            jackpotEligible: false,
-            dailyWinner: address(0),
-            jackpotWinner: address(0),
-            status: RoundStatus.Open
+            randomness: 0,
+            jackpotAllocated: 0,
+            freeEntryReserveAllocated: 0,
+            burnTreasuryAllocated: 0,
+            winnersPaid: 0,
+            status: RoundStatus.OPEN
         });
-        emit RoundOpened(roundId, openedAt, expiresAt);
+        emit RoundStarted(roundId, openedAt, expiresAt);
     }
 
-    function buyTickets(uint32 quantity, uint256 maxPayment)
-        external
-        nonReentrant
-        whenNotPaused
-        returns (uint256 amountPaid)
-    {
-        if (quantity == 0) revert InvalidQuantity();
-        Round storage round = _rounds[currentRoundId];
-        if (round.status != RoundStatus.Open) revert RoundNotOpen();
+    function _closeRound(uint256 roundId) internal {
+        Round storage round = _rounds[roundId];
+        if (round.eligibleTicketCount == 0) revert NoEligibleTickets();
+        round.status = RoundStatus.CLOSED;
+        round.closedAt = uint64(block.timestamp);
+        emit RoundClosed(roundId, round.eligibleTicketCount, round.prizePool);
+    }
 
-        amountPaid = quoteTickets(quantity);
-        if (amountPaid > maxPayment) revert InvalidPayment();
-        blobbyToken.safeTransferFrom(msg.sender, address(this), amountPaid);
+    function _requiredOperationalTopUp(uint256 roundId) internal view returns (uint256 amount) {
+        Round storage round = _rounds[roundId];
+        if (round.eligibleTicketCount >= drawConfig.ticketThreshold) return 0;
+        uint256 missingTickets = uint256(drawConfig.ticketThreshold) - uint256(round.eligibleTicketCount);
+        uint256 requiredAmount = quoteTickets(missingTickets);
+        if (round.operationalTopUp >= requiredAmount) return 0;
+        return requiredAmount - round.operationalTopUp;
+    }
 
-        uint32 start = round.eligibleTicketCount;
-        uint32 end = start + quantity;
-        round.eligibleTicketCount = end;
-        round.grossTicketRevenue += amountPaid;
-        _ticketRanges[currentRoundId].push(
-            TicketRange({ account: msg.sender, startInclusive: start, endExclusive: end, amountPaid: amountPaid })
-        );
+    function _allocateReserves(uint256 roundId, uint256 unusedPrizeUsdE18) internal {
+        Round storage round = _rounds[roundId];
+        uint256 freeReserveAmount = priceAdapter.getBlobbieAmountForUsd(FREE_ENTRY_RESERVE_USD_E18);
+        uint256 jackpotAmount = priceAdapter.getBlobbieAmountForUsd(JACKPOT_ALLOCATION_USD_E18);
+        uint256 burnTreasuryAmount = priceAdapter.getBlobbieAmountForUsd(BURN_TREASURY_ALLOCATION_USD_E18);
 
-        if (!hasEligibleEntry[currentRoundId][msg.sender]) {
-            hasEligibleEntry[currentRoundId][msg.sender] = true;
-            _participants[currentRoundId].push(msg.sender);
-            round.uniqueWalletCount += 1;
+        if (unusedPrizeUsdE18 != 0) {
+            uint256 unusedAmount = priceAdapter.getBlobbieAmountForUsd(unusedPrizeUsdE18);
+            uint256 jackpotShare = (unusedAmount * 70) / 100;
+            jackpotAmount += jackpotShare;
+            burnTreasuryAmount += unusedAmount - jackpotShare;
         }
 
-        emit TicketsPurchased(currentRoundId, msg.sender, quantity, start, end, amountPaid);
+        uint256 totalAllocation = freeReserveAmount + jackpotAmount + burnTreasuryAmount;
+        if (totalAllocation > round.prizePool) {
+            round.status = RoundStatus.FAILED_NEEDS_ADMIN_REVIEW;
+            emit RoundFailed(roundId, "INSUFFICIENT_ALLOCATION_POOL");
+            return;
+        }
+
+        round.prizePool -= totalAllocation;
+        round.freeEntryReserveAllocated = freeReserveAmount;
+        round.jackpotAllocated = jackpotAmount;
+        round.burnTreasuryAllocated = burnTreasuryAmount;
+        freeEntryReserveBalance += freeReserveAmount;
+        burnTreasuryReserveBalance += burnTreasuryAmount;
+
+        blobbyToken.forceApprove(address(jackpotVault), jackpotAmount);
+        jackpotVault.contributeFromDraw(jackpotAmount);
+        blobbyToken.safeTransfer(drawConfig.treasury, burnTreasuryAmount);
+
+        emit FreeEntryReserveAllocated(roundId, freeReserveAmount);
+        emit JackpotAllocated(roundId, jackpotAmount);
+        emit BurnTreasuryAllocated(roundId, burnTreasuryAmount);
     }
 
-    function topUpRound(uint256 roundId, uint256 amount) external onlyRole(TOP_UP_ROLE) nonReentrant whenNotPaused {
-        if (amount == 0) revert InvalidPayment();
+    function _selectWinner(uint256 roundId, uint256 randomness) internal view returns (address) {
         Round storage round = _rounds[roundId];
-        if (round.status != RoundStatus.Open) revert RoundNotOpen();
-        blobbyToken.safeTransferFrom(msg.sender, address(this), amount);
-        round.operationalTopUp += amount;
-        emit OperationalTopUp(roundId, msg.sender, amount);
+        if (round.uniqueWalletCount <= round.winnersPaid) return address(0);
+
+        address firstCandidate = _ticketOwnerAt(roundId, randomness % round.eligibleTicketCount);
+        if (_canWin(roundId, firstCandidate)) return firstCandidate;
+
+        address[] storage participants = _participants[roundId];
+        uint256 start = randomness % participants.length;
+        for (uint256 i = 0; i < participants.length; i++) {
+            address candidate = participants[(start + i) % participants.length];
+            if (_canWin(roundId, candidate)) return candidate;
+        }
+        return address(0);
     }
 
-    function closeRound(uint256 roundId) external onlyRole(OPERATOR_ROLE) whenNotPaused returns (uint256 requestId) {
-        Round storage round = _rounds[roundId];
-        if (round.status != RoundStatus.Open) revert RoundNotOpen();
-        if (round.eligibleTicketCount == 0) revert NoEligibleTickets();
-
-        round.status = RoundStatus.RandomnessRequested;
-        round.closedAt = uint64(block.timestamp);
-        requestId = IVRFCoordinatorV2PlusLike(vrfConfig.coordinator)
-            .requestRandomWords(
-                IVRFCoordinatorV2PlusLike.RandomWordsRequest({
-                keyHash: vrfConfig.keyHash,
-                subId: vrfConfig.subscriptionId,
-                requestConfirmations: vrfConfig.requestConfirmations,
-                callbackGasLimit: vrfConfig.callbackGasLimit,
-                numWords: 2,
-                extraArgs: vrfConfig.extraArgs
-            })
-            );
-        round.vrfRequestId = requestId;
-        requestToRound[requestId] = roundId;
-        emit RoundCloseRequested(roundId, requestId, round.jackpotEligible);
+    function _ticketOwnerAt(uint256 roundId, uint256 ticketIndex) internal view returns (address) {
+        TicketRange[] storage ranges = _ticketRanges[roundId];
+        for (uint256 i = 0; i < ranges.length; i++) {
+            if (ticketIndex >= ranges[i].startInclusive && ticketIndex < ranges[i].endExclusive) {
+                return ranges[i].account;
+            }
+        }
+        return address(0);
     }
 
-    function rawFulfillRandomWords(uint256 requestId, uint256[] calldata) external nonReentrant whenNotPaused {
-        if (msg.sender != vrfConfig.coordinator) revert UnauthorizedCoordinator();
-        uint256 roundId = requestToRound[requestId];
-        if (roundId == 0) revert UnknownRequest();
-        Round storage round = _rounds[roundId];
-        round.status = RoundStatus.Fulfilled;
-        emit RoundFulfilled(roundId, round.dailyWinner, round.jackpotWinner);
+    function _canWin(uint256 roundId, address account) internal view returns (bool) {
+        return account != address(0) && !hasWonRound[roundId][account] && !bannedWallet[account]
+            && !fraudRejectedWallet[account];
     }
 
-    function getRound(uint256 roundId) external view returns (Round memory round) {
-        return _rounds[roundId];
-    }
-
-    function ticketRangeCount(uint256 roundId) external view returns (uint256) {
-        return _ticketRanges[roundId].length;
-    }
-
-    function participantCount(uint256 roundId) external view returns (uint256) {
-        return _participants[roundId].length;
-    }
-
-    function requiredOperationalTopUp(uint256) public pure returns (uint256 amount) {
-        return 0;
-    }
-
-    function quoteTickets(uint32 quantity) public view returns (uint256 amount) {
-        if (quantity == 0) revert InvalidQuantity();
-        return priceAdapter.getBlobbieAmountForUsd(uint256(quantity) * drawConfig.ticketUsdPrice8 * 1e10);
+    function _slotPrizeUsdE18(uint16 slot) internal pure returns (uint256) {
+        if (slot == 0) return FIRST_PRIZE_USD_E18;
+        if (slot < 10) return SECOND_TIER_PRIZE_USD_E18;
+        return THIRD_TIER_PRIZE_USD_E18;
     }
 
     function _setDrawConfig(DrawConfig memory newConfig) internal {
         if (
-            newConfig.ticketThreshold == 0 || newConfig.roundDuration == 0 || newConfig.ticketUsdPrice8 == 0
-                || newConfig.jackpotContributionBps > 10_000
+            newConfig.ticketThreshold == 0 || newConfig.roundDuration == 0 || newConfig.ticketUsdPriceE18 == 0
+                || newConfig.jackpotContributionBps > 10_000 || newConfig.treasury == address(0)
         ) {
             revert InvalidConfig();
         }
