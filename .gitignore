@@ -16,3 +16,6 @@ typechain-types/
 apps/api/prisma/migrations/*/migration_lock.toml
 contracts/types/
 packages/database/src/generated/
+packages/contracts/out/
+packages/contracts/cache/
+packages/contracts/broadcast/
