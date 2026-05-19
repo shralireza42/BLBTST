@@ -210,7 +210,7 @@ contract BlobbieDailyDraw is AccessControl, Pausable, ReentrancyGuard, IBlobbieD
 
     function quoteTickets(uint32 quantity) public view returns (uint256 amount) {
         if (quantity == 0) revert InvalidQuantity();
-        return priceAdapter.quoteTokenAmountForUsd(uint256(quantity) * drawConfig.ticketUsdPrice8);
+        return priceAdapter.getBlobbieAmountForUsd(uint256(quantity) * drawConfig.ticketUsdPrice8 * 1e10);
     }
 
     function _setDrawConfig(DrawConfig memory newConfig) internal {

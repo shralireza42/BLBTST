@@ -18,6 +18,17 @@ contract MockPriceFeed {
         roundId += 1;
     }
 
+    function setAnswerWithUpdatedAt(int256 newAnswer, uint256 newUpdatedAt) external {
+        answer = newAnswer;
+        updatedAt = newUpdatedAt;
+        roundId += 1;
+    }
+
+    function setUpdatedAt(uint256 newUpdatedAt) external {
+        updatedAt = newUpdatedAt;
+        roundId += 1;
+    }
+
     function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80) {
         return (roundId, answer, updatedAt, updatedAt, roundId);
     }

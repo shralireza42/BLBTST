@@ -3,23 +3,29 @@ pragma solidity ^0.8.24;
 
 interface IBlobbiePriceAdapter {
     struct PriceQuote {
-        uint256 usdAmount8;
-        uint256 tokenAmount;
-        uint256 tokenUsdPrice8;
+        uint256 usdAmountE18;
+        uint256 blobbieAmount;
+        uint256 blobbieUsdPriceE18;
         uint256 updatedAt;
+        bool manualFallback;
     }
 
-    event PriceFeedsUpdated(address indexed tokenUsdFeed, uint256 maxStaleness);
-    event ManualPriceUpdated(uint256 tokenUsdPrice8, uint256 updatedAt);
+    event PriceFeedUpdated(address indexed blobbieUsdFeed);
+    event MaxPriceAgeUpdated(uint256 maxPriceAge);
+    event ManualFallbackPriceUpdated(uint256 blobbieUsdPriceE18, uint256 updatedAt);
+    event ManualFallbackUpdated(bool enabled);
 
     error InvalidPrice();
     error InvalidFeed();
     error StalePrice();
     error InvalidAmount();
+    error PriceUnavailable();
 
-    function quoteTokenAmountForUsd(uint256 usdAmount8) external view returns (uint256 tokenAmount);
+    function getBlobbieAmountForUsd(uint256 usdAmountE18) external view returns (uint256 blobbieAmount);
 
-    function latestQuote(uint256 usdAmount8) external view returns (PriceQuote memory quote);
+    function getTicketPriceInBlobbie() external view returns (uint256 blobbieAmount);
 
-    function tokenUsdPrice8() external view returns (uint256 price8, uint256 updatedAt);
+    function getBlobbieUsdPriceE18() external view returns (uint256 priceE18);
+
+    function latestQuote(uint256 usdAmountE18) external view returns (PriceQuote memory quote);
 }
