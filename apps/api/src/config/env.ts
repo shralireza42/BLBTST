@@ -14,7 +14,8 @@ const envSchema = z.object({
   ADMIN_PRIVATE_KEY: z.string().optional(),
   ADMIN_API_KEY: z.string().optional(),
   AUTH_SESSION_SECRET: z.string().optional(),
-  ADMIN_WALLETS: z.string().optional()
+  ADMIN_WALLETS: z.string().optional(),
+  EXPLORER_BASE_URL: z.string().url().default("https://bscscan.com")
 });
 
 export const env = envSchema.parse(process.env);
