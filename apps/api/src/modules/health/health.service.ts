@@ -11,10 +11,11 @@ export class HealthService {
   }
 
   async indexer() {
-    const [health, cursors] = await Promise.all([
+    const [health, queueHealth, cursors] = await Promise.all([
       this.prisma.client.systemConfig.findUnique({ where: { key: "indexer.health" } }),
+      this.prisma.client.systemConfig.findUnique({ where: { key: "worker.queues.health" } }),
       this.prisma.client.contractSyncCursor.findMany({ orderBy: [{ chainId: "asc" }, { cursorName: "asc" }] })
     ]);
-    return serializeForJson({ ok: true, health: health?.value ?? null, cursors });
+    return serializeForJson({ ok: true, health: health?.value ?? null, queues: queueHealth?.value ?? null, cursors });
   }
 }

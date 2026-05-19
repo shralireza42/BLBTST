@@ -49,6 +49,40 @@ After deployment:
 3. Approve the Daily Draw contract to spend operational top-up BLOBBIE from the worker/top-up wallet.
 4. Set API and worker `.env` values with deployed addresses and secrets.
 
+## Worker automation
+
+The worker uses BullMQ with Redis for repeatable automation jobs. Configure `apps/worker/.env`
+from `apps/worker/.env.example`, including:
+
+- `REDIS_URL`
+- `BSC_RPC_URL`
+- `DAILY_DRAW_ADDRESS`
+- `JACKPOT_VAULT_ADDRESS`
+- `CONTRACT_SYNC_START_BLOCK`
+- `CONTRACT_CONFIRMATION_DEPTH`
+- `WORKER_DRY_RUN`
+- `WORKER_PRIVATE_KEY` only when dry-run is disabled
+
+Run locally:
+
+```bash
+npm run dev -w apps/worker
+```
+
+Jobs registered by the worker:
+
+- `round-timeout-monitor`
+- `round-close-worker`
+- `settlement-monitor`
+- `vrf-monitor`
+- `jackpot-threshold-monitor`
+- `oracle-health-monitor`
+- `price-snapshot-worker`
+- `audit-export-worker`
+
+Keep `WORKER_DRY_RUN=true` until deployed contract addresses, roles, token approvals, and Redis
+connectivity are verified. Worker health is exposed through `GET /health/indexer`.
+
 ## Security
 
 Never commit secrets. Copy `.env.example` files to `.env` locally and provide RPC URLs, private keys,

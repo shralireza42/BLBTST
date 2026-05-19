@@ -10,11 +10,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@blobby/database": "0.1.0",
+    "bullmq": "^5.76.10",
     "dotenv": "latest",
     "ethers": "latest",
+    "ioredis": "^5.10.1",
     "pino": "latest",
-    "zod": "latest",
-    "@blobby/database": "0.1.0"
+    "zod": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
