@@ -12,7 +12,9 @@ const envSchema = z.object({
   DAILY_DRAW_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   BLOBBIE_TOKEN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   ADMIN_PRIVATE_KEY: z.string().optional(),
-  ADMIN_API_KEY: z.string().optional()
+  ADMIN_API_KEY: z.string().optional(),
+  AUTH_SESSION_SECRET: z.string().optional(),
+  ADMIN_WALLETS: z.string().optional()
 });
 
 export const env = envSchema.parse(process.env);
