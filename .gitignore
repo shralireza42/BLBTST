@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+
+node_modules/
+dist/
+build/
+coverage/
+cache/
+artifacts/
+typechain-types/
+
+*.log
+.DS_Store
+
+apps/api/prisma/migrations/*/migration_lock.toml

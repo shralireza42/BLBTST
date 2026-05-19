@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DrawRoundStatus {
+  OPEN
+  CALCULATING
+  FULFILLED
+  CANCELLED
+}
+
+model DrawRound {
+  id                  BigInt          @id
+  status              DrawRoundStatus
+  openedAt            DateTime
+  expiresAt           DateTime
+  closedAt            DateTime?
+  eligibleTicketCount Int             @default(0)
+  uniqueWalletCount   Int             @default(0)
+  grossTicketRevenue  Decimal         @db.Decimal(78, 0)
+  prizePool           Decimal         @db.Decimal(78, 0)
+  jackpotContribution Decimal         @db.Decimal(78, 0)
+  operationalTopUp    Decimal         @db.Decimal(78, 0)
+  dailyPrizePaid      Decimal         @db.Decimal(78, 0)
+  jackpotPaid         Decimal         @db.Decimal(78, 0)
+  dailyWinner         String?
+  jackpotWinner       String?
+  vrfRequestId        Decimal?        @db.Decimal(78, 0)
+  jackpotEligible     Boolean         @default(false)
+  txHash              String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  purchases TicketPurchase[]
+  topUps    DrawTopUp[]
+  winners   DrawWinner[]
+}
+
+model TicketPurchase {
+  id                  String   @id @default(cuid())
+  roundId             BigInt
+  buyer               String
+  quantity            Int
+  startInclusive      Int
+  endExclusive        Int
+  blobbyPaid          Decimal  @db.Decimal(78, 0)
+  jackpotContribution Decimal  @db.Decimal(78, 0)
+  txHash              String
+  logIndex            Int
+  blockNumber         BigInt
+  createdAt           DateTime @default(now())
+
+  round DrawRound @relation(fields: [roundId], references: [id])
+
+  @@unique([txHash, logIndex])
+  @@index([roundId])
+  @@index([buyer])
+}
+
+model DrawTopUp {
+  id          String   @id @default(cuid())
+  roundId     BigInt
+  payer       String
+  amount      Decimal  @db.Decimal(78, 0)
+  txHash      String
+  logIndex    Int
+  blockNumber BigInt
+  createdAt   DateTime @default(now())
+
+  round DrawRound @relation(fields: [roundId], references: [id])
+
+  @@unique([txHash, logIndex])
+  @@index([roundId])
+}
+
+model DrawWinner {
+  id          String   @id @default(cuid())
+  roundId     BigInt
+  winner      String
+  prizeType   String
+  amount      Decimal  @db.Decimal(78, 0)
+  txHash      String
+  logIndex    Int
+  blockNumber BigInt
+  createdAt   DateTime @default(now())
+
+  round DrawRound @relation(fields: [roundId], references: [id])
+
+  @@unique([txHash, logIndex, prizeType])
+  @@index([roundId])
+  @@index([winner])
+}
+
+model ChainEvent {
+  id          String   @id @default(cuid())
+  name        String
+  txHash      String
+  logIndex    Int
+  blockNumber BigInt
+  payload     Json
+  createdAt   DateTime @default(now())
+
+  @@unique([txHash, logIndex])
+  @@index([name])
+  @@index([blockNumber])
+}
+
+model AppConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  actor     String
+  payload   Json
+  createdAt DateTime @default(now())
+}

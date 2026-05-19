@@ -1,0 +1,21 @@
+{
+  "name": "@blobby/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat test",
+    "typecheck": "tsc --noEmit",
+    "deploy:bsc": "hardhat run scripts/deploy.ts --network bsc"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "latest",
+    "dotenv": "latest"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "latest",
+    "hardhat": "latest",
+    "typescript": "latest"
+  }
+}
