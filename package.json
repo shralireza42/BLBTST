@@ -7,6 +7,7 @@
     "apps/api",
     "apps/worker",
     "apps/web",
+    "apps/realtime",
     "packages/*"
   ],
   "scripts": {
@@ -16,9 +17,13 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "prisma:generate": "npm run prisma:generate -w apps/api",
     "prebuild": "npm run prisma:generate",
-    "pretypecheck": "npm run prisma:generate"
+    "pretypecheck": "npm run prisma:generate",
+    "dev": "pnpm --parallel --filter @blobby/api --filter @blobby/worker --filter @blobby/web --filter @blobby/realtime dev",
+    "db:migrate": "pnpm --filter @blobby/api prisma:migrate",
+    "db:generate": "pnpm --filter @blobby/api prisma:generate"
   },
   "devDependencies": {
     "typescript": "latest"
-  }
+  },
+  "packageManager": "pnpm@10.0.0"
 }

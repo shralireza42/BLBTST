@@ -26,10 +26,29 @@ Production-focused scaffold for BLOBBIE Daily Draw and Jackpot operations on BNB
 ## Local setup
 
 ```bash
-npm install
-npm run prisma:generate
-npm run build
-npm test
+cp .env.example .env
+docker compose up -d
+pnpm install
+pnpm db:migrate
+pnpm dev
+```
+
+`docker compose up -d` starts PostgreSQL and Redis by default. App containers are also defined
+behind the `app` profile for production-like local smoke testing:
+
+```bash
+docker compose --profile app up --build
+```
+
+The repository still supports npm workspace commands used by CI/agents, but local development is
+configured around pnpm:
+
+```bash
+pnpm db:generate
+pnpm --filter @blobby/api dev
+pnpm --filter @blobby/web dev
+pnpm --filter @blobby/worker dev
+pnpm --filter @blobby/realtime dev
 ```
 
 ## Deployment
