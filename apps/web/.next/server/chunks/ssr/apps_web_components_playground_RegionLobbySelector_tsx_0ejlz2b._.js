@@ -1,3 +1,0 @@
-module.exports=[40412,a=>{"use strict";var b=a.i(87924),c=a.i(72131);let d=["Global","Asia","Europe","North America","South America","Africa","Oceania"];a.s(["RegionLobbySelector",0,function(){let[a,e]=(0,c.useState)("Global");return(0,b.jsx)("div",{className:"flex flex-wrap gap-2",children:d.map(c=>(0,b.jsx)("button",{onClick:()=>e(c),className:`rounded-full border-2 border-[#020202] px-4 py-2 ${a===c?"bg-[#bc352a] text-white":"bg-white"}`,children:c},c))})}])}];
-
-//# sourceMappingURL=apps_web_components_playground_RegionLobbySelector_tsx_0ejlz2b._.js.map

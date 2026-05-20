@@ -19,3 +19,5 @@ packages/database/src/generated/
 packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/
+.next/
+apps/web/.next/

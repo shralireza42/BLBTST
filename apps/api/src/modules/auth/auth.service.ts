@@ -49,7 +49,7 @@ export class AuthService {
   }
 
   private message(walletAddress: string, nonce: string) {
-    return `Sign in to BLOBBIE\nWallet: ${walletAddress}\nNonce: ${nonce}`;
+    return `Sign this message to authenticate with BLOBBIE. This does not cost gas.\n\nWallet: ${walletAddress}\nNonce: ${nonce}`;
   }
 
   private adminWallets(): string[] {

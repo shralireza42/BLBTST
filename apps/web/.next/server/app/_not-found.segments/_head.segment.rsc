@@ -1,5 +1,0 @@
-1:"$Sreact.fragment"
-2:I[97367,["/_next/static/chunks/13eft-qse6.yd.js","/_next/static/chunks/07_g-f554sxa8.js","/_next/static/chunks/0d3shmwh5_nmn.js","/_next/static/chunks/0j97b00teqrh~.js"],"ViewportBoundary"]
-3:I[97367,["/_next/static/chunks/13eft-qse6.yd.js","/_next/static/chunks/07_g-f554sxa8.js","/_next/static/chunks/0d3shmwh5_nmn.js","/_next/static/chunks/0j97b00teqrh~.js"],"MetadataBoundary"]
-4:"$Sreact.suspense"
-0:{"rsc":["$","$1","h",{"children":[["$","meta",null,{"name":"robots","content":"noindex"}],["$","$L2",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$L3",null,{"children":["$","$4",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"BLOBBIE"}],["$","meta","1",{"name":"description","content":"BLOBBIE Daily Draw, Jackpot, Playground, and Rewards"}]]}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"b5Auo-5rvf2QSat5dSk9N"}
