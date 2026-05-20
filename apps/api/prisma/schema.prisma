@@ -1,0 +1,1015 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../../../packages/database/src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  DELETED
+}
+
+enum WalletStatus {
+  ACTIVE
+  BANNED
+  FRAUD_REJECTED
+  REVIEW_REQUIRED
+}
+
+enum ReviewStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+  ESCALATED
+}
+
+enum DrawRoundStatus {
+  OPEN
+  CLOSED
+  VRF_REQUESTED
+  DRAWING
+  SETTLING
+  FINALIZED
+  PAUSED
+  FAILED_NEEDS_ADMIN_REVIEW
+  CALCULATING
+  FULFILLED
+  CANCELLED
+}
+
+enum DrawEntrySource {
+  PAID
+  REFERRAL
+  PROMOTIONAL
+  TASK_REWARD
+  OPERATIONAL_TOP_UP
+  ADMIN_ADJUSTMENT
+}
+
+enum DrawEntryStatus {
+  ELIGIBLE
+  EXCLUDED
+  FRAUD_REJECTED
+  CANCELLED
+}
+
+enum DrawPrizeTier {
+  FIRST
+  SECOND_TO_TENTH
+  ELEVENTH_TO_ONE_FIFTIETH
+  FREE_ENTRY_RESERVE
+  JACKPOT_ALLOCATION
+  BURN_TREASURY
+  UNUSED_REDISTRIBUTION
+}
+
+enum DrawSettlementStatus {
+  PENDING
+  VRF_REQUESTED
+  RANDOMNESS_RECEIVED
+  SETTLING
+  FINALIZED
+  FAILED
+  ADMIN_REVIEW
+}
+
+enum JackpotCycleStatus {
+  OPEN
+  THRESHOLD_MET
+  VRF_REQUESTED
+  SETTLING
+  PAID
+  CANCELLED
+  FAILED_NEEDS_ADMIN_REVIEW
+}
+
+enum RewardLedgerType {
+  DRAW_PRIZE
+  JACKPOT_PRIZE
+  REFERRAL_REWARD
+  TASK_REWARD
+  FREE_ENTRY_RESERVE
+  BURN_TREASURY_RESERVE
+  ADJUSTMENT
+}
+
+enum RewardLedgerStatus {
+  PENDING
+  POSTED
+  REVERSED
+  FAILED
+}
+
+enum ReferralBindingStatus {
+  ACTIVE
+  REVOKED
+  FRAUD_REJECTED
+}
+
+enum ReferralRewardStatus {
+  PENDING
+  APPROVED
+  PAID
+  REJECTED
+}
+
+enum TaskStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
+  ARCHIVED
+}
+
+enum TaskClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+  EXPIRED
+}
+
+enum FraudSignalType {
+  WALLET_CLUSTER
+  DUPLICATE_ACCOUNT
+  BOT_ACTIVITY
+  SUSPICIOUS_REFERRAL
+  CHARGEBACK
+  ADMIN_FLAG
+  OTHER
+}
+
+enum FraudCaseStatus {
+  OPEN
+  INVESTIGATING
+  CLEARED
+  CONFIRMED
+  CLOSED
+}
+
+enum ContractEventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+enum AdminActionStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+enum SupportTicketStatus {
+  OPEN
+  PENDING_USER
+  PENDING_ADMIN
+  RESOLVED
+  CLOSED
+}
+
+enum SupportPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum BugReportStatus {
+  NEW
+  TRIAGED
+  IN_PROGRESS
+  FIXED
+  WONT_FIX
+  DUPLICATE
+}
+
+model User {
+  id              String       @id @default(cuid())
+  email           String?      @unique
+  username        String?      @unique
+  status          UserStatus   @default(ACTIVE)
+  reviewStatus    ReviewStatus @default(NONE)
+  fraudExcluded   Boolean      @default(false)
+  bannedAt        DateTime?
+  fraudRejectedAt DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+
+  wallets                    Wallet[]
+  profile                    Profile?
+  referralCodes              ReferralCode[]
+  referralBindingsAsUser     ReferralBinding[]     @relation("ReferralBindingUser")
+  referralBindingsAsReferrer ReferralBinding[]     @relation("ReferralBindingReferrer")
+  referralRewards            ReferralReward[]
+  taskClaims                 TaskClaim[]
+  taskVerificationLogs       TaskVerificationLog[]
+  fraudSignals               FraudSignal[]
+  fraudCases                 FraudCase[]
+  rewardLedgerEntries        RewardLedgerEntry[]
+  supportTickets             SupportTicket[]
+  bugReports                 BugReport[]
+
+  @@index([status])
+  @@index([reviewStatus])
+  @@index([fraudExcluded])
+  @@index([createdAt])
+}
+
+model Wallet {
+  id              String       @id @default(cuid())
+  userId          String?
+  address         String
+  chainId         Int          @default(56)
+  status          WalletStatus @default(ACTIVE)
+  isPrimary       Boolean      @default(false)
+  fraudExcluded   Boolean      @default(false)
+  bannedAt        DateTime?
+  fraudRejectedAt DateTime?
+  firstSeenAt     DateTime     @default(now())
+  lastSeenAt      DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+
+  user                User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  drawEntries         DrawEntry[]
+  drawWinners         DrawWinner[]
+  jackpotEntries      JackpotEntry[]
+  jackpotWinners      JackpotWinner[]
+  rewardLedgerEntries RewardLedgerEntry[]
+  referralCodes       ReferralCode[]
+  referralRewards     ReferralReward[]
+  taskClaims          TaskClaim[]
+  fraudSignals        FraudSignal[]
+  fraudCases          FraudCase[]
+  supportTickets      SupportTicket[]
+  bugReports          BugReport[]
+
+  @@unique([chainId, address])
+  @@index([userId])
+  @@index([status])
+  @@index([fraudExcluded])
+  @@index([address])
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  displayName String?
+  avatarUrl   String?
+  bio         String?
+  country     String?
+  locale      String?
+  timezone    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DrawRound {
+  id                    BigInt          @id
+  chainId               Int             @default(56)
+  contractAddress       String?
+  status                DrawRoundStatus @default(OPEN)
+  openedAt              DateTime
+  expiresAt             DateTime
+  closedAt              DateTime?
+  finalizedAt           DateTime?
+  eligibleTicketCount   Int             @default(0)
+  totalEntryCount       Int             @default(0)
+  uniqueWalletCount     Int             @default(0)
+  grossTicketRevenue    Decimal         @default(0) @db.Decimal(78, 0)
+  prizePool             Decimal         @default(0) @db.Decimal(78, 0)
+  jackpotContribution   Decimal         @default(0) @db.Decimal(78, 0)
+  operationalTopUp      Decimal         @default(0) @db.Decimal(78, 0)
+  topUpRequired         Decimal         @default(0) @db.Decimal(78, 0)
+  dailyPrizePaid        Decimal         @default(0) @db.Decimal(78, 0)
+  jackpotPaid           Decimal         @default(0) @db.Decimal(78, 0)
+  freeEntryReserve      Decimal         @default(0) @db.Decimal(78, 0)
+  burnTreasuryReserve   Decimal         @default(0) @db.Decimal(78, 0)
+  dailyWinner           String?
+  jackpotWinner         String?
+  vrfRequestId          Decimal?        @db.Decimal(78, 0)
+  randomness            Decimal?        @db.Decimal(78, 0)
+  jackpotEligible       Boolean         @default(false)
+  reviewStatus          ReviewStatus    @default(NONE)
+  reviewReason          String?
+  txHash                String?
+  closeTxHash           String?
+  settlementTxHash      String?
+  blockNumber           BigInt?
+  closeBlockNumber      BigInt?
+  settlementBlockNumber BigInt?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  entries        DrawEntry[]
+  winners        DrawWinner[]
+  settlements    DrawSettlement[]
+  priceSnapshots PriceSnapshot[]
+  purchases      TicketPurchase[]
+  topUps         DrawTopUp[]
+
+  @@unique([chainId, contractAddress, id])
+  @@index([status])
+  @@index([openedAt])
+  @@index([expiresAt])
+  @@index([txHash])
+  @@index([blockNumber])
+}
+
+model DrawEntry {
+  id                  String          @id @default(cuid())
+  roundId             BigInt
+  walletId            String?
+  userId              String?
+  walletAddress       String
+  chainId             Int             @default(56)
+  contractAddress     String?
+  source              DrawEntrySource @default(PAID)
+  status              DrawEntryStatus @default(ELIGIBLE)
+  quantity            Int
+  eligibleQuantity    Int             @default(0)
+  startInclusive      Int?
+  endExclusive        Int?
+  blobbyPaid          Decimal         @default(0) @db.Decimal(78, 0)
+  usdValueE18         Decimal         @default(0) @db.Decimal(78, 0)
+  jackpotContribution Decimal         @default(0) @db.Decimal(78, 0)
+  excludedReason      String?
+  fraudExcluded       Boolean         @default(false)
+  txHash              String?
+  logIndex            Int?
+  blockNumber         BigInt?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  round  DrawRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  wallet Wallet?   @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@unique([chainId, txHash, logIndex])
+  @@index([roundId])
+  @@index([walletId])
+  @@index([walletAddress])
+  @@index([source])
+  @@index([status])
+  @@index([blockNumber])
+}
+
+model DrawWinner {
+  id            String         @id @default(cuid())
+  roundId       BigInt
+  walletId      String?
+  walletAddress String?
+  winner        String?
+  slot          Int?
+  tier          DrawPrizeTier?
+  prizeType     String         @default("DAILY")
+  amount        Decimal        @db.Decimal(78, 0)
+  usdValueE18   Decimal        @default(0) @db.Decimal(78, 0)
+  paid          Boolean        @default(false)
+  txHash        String?
+  logIndex      Int?
+  blockNumber   BigInt?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  round  DrawRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  wallet Wallet?   @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@unique([roundId, slot])
+  @@unique([roundId, walletAddress])
+  @@unique([txHash, logIndex, prizeType])
+  @@unique([txHash, logIndex, tier])
+  @@index([walletId])
+  @@index([walletAddress])
+  @@index([winner])
+  @@index([tier])
+  @@index([prizeType])
+  @@index([blockNumber])
+}
+
+model DrawPrizeConfig {
+  id            String        @id @default(cuid())
+  name          String
+  tier          DrawPrizeTier
+  slotStart     Int
+  slotEnd       Int
+  usdValueE18   Decimal       @db.Decimal(78, 0)
+  isActive      Boolean       @default(true)
+  effectiveFrom DateTime      @default(now())
+  effectiveTo   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([isActive])
+  @@index([tier])
+  @@index([effectiveFrom])
+}
+
+model DrawSettlement {
+  id               String               @id @default(cuid())
+  roundId          BigInt
+  status           DrawSettlementStatus @default(PENDING)
+  vrfRequestId     Decimal?             @db.Decimal(78, 0)
+  randomness       Decimal?             @db.Decimal(78, 0)
+  winnersPaid      Int                  @default(0)
+  totalPrizePaid   Decimal              @default(0) @db.Decimal(78, 0)
+  jackpotAllocated Decimal              @default(0) @db.Decimal(78, 0)
+  freeEntryReserve Decimal              @default(0) @db.Decimal(78, 0)
+  burnTreasury     Decimal              @default(0) @db.Decimal(78, 0)
+  failureReason    String?
+  reviewStatus     ReviewStatus         @default(NONE)
+  requestedTxHash  String?
+  fulfilledTxHash  String?
+  settledTxHash    String?
+  blockNumber      BigInt?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  finalizedAt      DateTime?
+
+  round DrawRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@index([roundId])
+  @@index([status])
+  @@index([vrfRequestId])
+  @@index([blockNumber])
+}
+
+model JackpotCycle {
+  id                    BigInt             @id
+  chainId               Int                @default(56)
+  contractAddress       String?
+  status                JackpotCycleStatus @default(OPEN)
+  startedAt             DateTime           @default(now())
+  thresholdMetAt        DateTime?
+  randomnessRequestedAt DateTime?
+  endedAt               DateTime?
+  thresholdUsdE18       Decimal            @default(100000000000000000000000) @db.Decimal(78, 0)
+  thresholdBlobbie      Decimal            @default(0) @db.Decimal(78, 0)
+  reserveBalance        Decimal            @default(0) @db.Decimal(78, 0)
+  totalContributed      Decimal            @default(0) @db.Decimal(78, 0)
+  eligibleTicketCount   Int                @default(0)
+  vrfRequestId          Decimal?           @db.Decimal(78, 0)
+  randomness            Decimal?           @db.Decimal(78, 0)
+  winnerWalletAddress   String?
+  paidAmount            Decimal            @default(0) @db.Decimal(78, 0)
+  txHash                String?
+  settlementTxHash      String?
+  blockNumber           BigInt?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  entries       JackpotEntry[]
+  contributions JackpotContribution[]
+  winner        JackpotWinner?
+
+  @@unique([chainId, contractAddress, id])
+  @@index([status])
+  @@index([startedAt])
+  @@index([vrfRequestId])
+  @@index([blockNumber])
+}
+
+model JackpotEntry {
+  id              String          @id @default(cuid())
+  cycleId         BigInt
+  walletId        String?
+  walletAddress   String
+  drawRoundId     BigInt?
+  drawEntryId     String?
+  ticketCount     Int
+  startInclusive  Int?
+  endExclusive    Int?
+  source          DrawEntrySource @default(PAID)
+  eligible        Boolean         @default(true)
+  exclusionReason String?
+  fraudExcluded   Boolean         @default(false)
+  txHash          String?
+  logIndex        Int?
+  blockNumber     BigInt?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  cycle  JackpotCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  wallet Wallet?      @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@unique([txHash, logIndex])
+  @@index([cycleId])
+  @@index([walletId])
+  @@index([walletAddress])
+  @@index([source])
+  @@index([eligible])
+}
+
+model JackpotContribution {
+  id              String   @id @default(cuid())
+  cycleId         BigInt
+  drawRoundId     BigInt?
+  amount          Decimal  @db.Decimal(78, 0)
+  source          String
+  chainId         Int      @default(56)
+  contractAddress String?
+  txHash          String?
+  logIndex        Int?
+  blockNumber     BigInt?
+  createdAt       DateTime @default(now())
+
+  cycle JackpotCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([chainId, txHash, logIndex])
+  @@index([cycleId])
+  @@index([drawRoundId])
+  @@index([blockNumber])
+}
+
+model JackpotWinner {
+  id            String    @id @default(cuid())
+  cycleId       BigInt    @unique
+  walletId      String?
+  walletAddress String
+  amount        Decimal   @db.Decimal(78, 0)
+  txHash        String?
+  logIndex      Int?
+  blockNumber   BigInt?
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  cycle  JackpotCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  wallet Wallet?      @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@unique([txHash, logIndex])
+  @@index([walletId])
+  @@index([walletAddress])
+  @@index([blockNumber])
+}
+
+model RewardLedgerEntry {
+  id              String             @id @default(cuid())
+  userId          String?
+  walletId        String?
+  walletAddress   String?
+  type            RewardLedgerType
+  status          RewardLedgerStatus @default(PENDING)
+  amount          Decimal            @db.Decimal(78, 0)
+  usdValueE18     Decimal?           @db.Decimal(78, 0)
+  chainId         Int                @default(56)
+  contractAddress String?
+  txHash          String?
+  blockNumber     BigInt?
+  referenceType   String?
+  referenceId     String?
+  metadata        Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  wallet Wallet? @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([type])
+  @@index([status])
+  @@index([referenceType, referenceId])
+  @@index([txHash])
+}
+
+model ReferralCode {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  userId    String?
+  walletId  String?
+  isActive  Boolean   @default(true)
+  maxUses   Int?
+  useCount  Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expiresAt DateTime?
+
+  user     User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  wallet   Wallet?           @relation(fields: [walletId], references: [id], onDelete: SetNull)
+  bindings ReferralBinding[]
+  rewards  ReferralReward[]
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([isActive])
+}
+
+model ReferralBinding {
+  id                    String                @id @default(cuid())
+  referralCodeId        String
+  referredUserId        String?
+  referredWalletAddress String
+  referrerUserId        String?
+  status                ReferralBindingStatus @default(ACTIVE)
+  fraudExcluded         Boolean               @default(false)
+  boundAt               DateTime              @default(now())
+  revokedAt             DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  referralCode ReferralCode @relation(fields: [referralCodeId], references: [id], onDelete: Cascade)
+  referredUser User?        @relation("ReferralBindingUser", fields: [referredUserId], references: [id], onDelete: SetNull)
+  referrerUser User?        @relation("ReferralBindingReferrer", fields: [referrerUserId], references: [id], onDelete: SetNull)
+
+  @@unique([referralCodeId, referredWalletAddress])
+  @@index([referredUserId])
+  @@index([referrerUserId])
+  @@index([status])
+}
+
+model ReferralReward {
+  id             String               @id @default(cuid())
+  referralCodeId String?
+  userId         String?
+  walletId       String?
+  walletAddress  String
+  status         ReferralRewardStatus @default(PENDING)
+  amount         Decimal              @db.Decimal(78, 0)
+  rewardToken    String?
+  reason         String?
+  txHash         String?
+  blockNumber    BigInt?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  paidAt         DateTime?
+
+  referralCode ReferralCode? @relation(fields: [referralCodeId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  wallet       Wallet?       @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@index([referralCodeId])
+  @@index([userId])
+  @@index([walletId])
+  @@index([status])
+  @@index([txHash])
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  slug         String     @unique
+  title        String
+  description  String?
+  status       TaskStatus @default(DRAFT)
+  rewardAmount Decimal    @default(0) @db.Decimal(78, 0)
+  rewardUsdE18 Decimal?   @db.Decimal(78, 0)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  maxClaims    Int?
+  claimCount   Int        @default(0)
+  metadata     Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  claims TaskClaim[]
+
+  @@index([status])
+  @@index([startsAt])
+  @@index([endsAt])
+}
+
+model TaskClaim {
+  id            String          @id @default(cuid())
+  taskId        String
+  userId        String?
+  walletId      String?
+  walletAddress String
+  status        TaskClaimStatus @default(PENDING)
+  proof         Json?
+  rewardAmount  Decimal         @default(0) @db.Decimal(78, 0)
+  fraudExcluded Boolean         @default(false)
+  reviewStatus  ReviewStatus    @default(PENDING)
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  txHash        String?
+  blockNumber   BigInt?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  task             Task                  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user             User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  wallet           Wallet?               @relation(fields: [walletId], references: [id], onDelete: SetNull)
+  verificationLogs TaskVerificationLog[]
+
+  @@unique([taskId, walletAddress])
+  @@index([userId])
+  @@index([walletId])
+  @@index([status])
+  @@index([reviewStatus])
+}
+
+model TaskVerificationLog {
+  id          String       @id @default(cuid())
+  taskClaimId String
+  userId      String?
+  verifier    String
+  result      ReviewStatus
+  reason      String?
+  payload     Json?
+  createdAt   DateTime     @default(now())
+
+  taskClaim TaskClaim @relation(fields: [taskClaimId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([taskClaimId])
+  @@index([userId])
+  @@index([result])
+}
+
+model FraudSignal {
+  id            String          @id @default(cuid())
+  type          FraudSignalType
+  severity      Int             @default(1)
+  userId        String?
+  walletId      String?
+  walletAddress String?
+  source        String
+  payload       Json?
+  reviewed      Boolean         @default(false)
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime        @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  wallet Wallet? @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([severity])
+  @@index([userId])
+  @@index([walletId])
+  @@index([walletAddress])
+  @@index([reviewed])
+}
+
+model FraudCase {
+  id            String          @id @default(cuid())
+  status        FraudCaseStatus @default(OPEN)
+  userId        String?
+  walletId      String?
+  walletAddress String?
+  title         String
+  description   String?
+  riskScore     Int             @default(0)
+  assignedTo    String?
+  resolution    String?
+  openedAt      DateTime        @default(now())
+  closedAt      DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  wallet Wallet? @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([userId])
+  @@index([walletId])
+  @@index([walletAddress])
+  @@index([riskScore])
+}
+
+model ContractEvent {
+  id              String              @id @default(cuid())
+  chainId         Int                 @default(56)
+  contractAddress String
+  eventName       String
+  txHash          String
+  logIndex        Int
+  blockNumber     BigInt
+  blockHash       String?
+  payload         Json
+  status          ContractEventStatus @default(PENDING)
+  processedAt     DateTime?
+  error           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([chainId, txHash, logIndex])
+  @@index([chainId, contractAddress])
+  @@index([eventName])
+  @@index([blockNumber])
+  @@index([status])
+}
+
+model ContractSyncCursor {
+  id              String   @id @default(cuid())
+  chainId         Int      @default(56)
+  contractAddress String
+  cursorName      String
+  lastBlockNumber BigInt   @default(0)
+  lastTxHash      String?
+  lastLogIndex    Int?
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  @@unique([chainId, contractAddress, cursorName])
+  @@index([lastBlockNumber])
+}
+
+model AdminActionLog {
+  id          String            @id @default(cuid())
+  actorUserId String?
+  actorWallet String?
+  action      String
+  status      AdminActionStatus @default(SUCCESS)
+  targetType  String?
+  targetId    String?
+  ipAddress   String?
+  userAgent   String?
+  payload     Json
+  txHash      String?
+  createdAt   DateTime          @default(now())
+
+  @@index([actorUserId])
+  @@index([actorWallet])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+model FeatureFlag {
+  key         String   @id
+  enabled     Boolean  @default(false)
+  description String?
+  rules       Json?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SystemConfig {
+  key         String   @id
+  value       Json
+  description String?
+  isSecret    Boolean  @default(false)
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PriceSnapshot {
+  id            String   @id @default(cuid())
+  chainId       Int      @default(56)
+  oracleAddress String?
+  tokenAddress  String?
+  drawRoundId   BigInt?
+  priceE18      Decimal  @db.Decimal(78, 0)
+  source        String
+  blockNumber   BigInt?
+  txHash        String?
+  observedAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  drawRound DrawRound? @relation(fields: [drawRoundId], references: [id], onDelete: SetNull)
+
+  @@index([chainId, oracleAddress])
+  @@index([tokenAddress])
+  @@index([drawRoundId])
+  @@index([blockNumber])
+  @@index([observedAt])
+}
+
+model OracleHealthCheck {
+  id            String    @id @default(cuid())
+  chainId       Int       @default(56)
+  oracleAddress String
+  status        String
+  priceE18      Decimal?  @db.Decimal(78, 0)
+  lastUpdatedAt DateTime?
+  maxPriceAge   Int?
+  latencyMs     Int?
+  error         String?
+  checkedAt     DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+
+  @@index([chainId, oracleAddress])
+  @@index([status])
+  @@index([checkedAt])
+}
+
+model SupportTicket {
+  id            String              @id @default(cuid())
+  userId        String?
+  walletId      String?
+  walletAddress String?
+  subject       String
+  message       String
+  status        SupportTicketStatus @default(OPEN)
+  priority      SupportPriority     @default(NORMAL)
+  assignedTo    String?
+  metadata      Json?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  resolvedAt    DateTime?
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  wallet Wallet? @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model BugReport {
+  id            String          @id @default(cuid())
+  userId        String?
+  walletId      String?
+  walletAddress String?
+  title         String
+  description   String
+  status        BugReportStatus @default(NEW)
+  severity      SupportPriority @default(NORMAL)
+  environment   Json?
+  steps         String?
+  assignedTo    String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  resolvedAt    DateTime?
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  wallet Wallet? @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+// Legacy indexer models kept for migration compatibility with existing worker/API code.
+model TicketPurchase {
+  id                  String   @id @default(cuid())
+  roundId             BigInt
+  buyer               String
+  quantity            Int
+  startInclusive      Int
+  endExclusive        Int
+  blobbyPaid          Decimal  @db.Decimal(78, 0)
+  jackpotContribution Decimal  @db.Decimal(78, 0)
+  txHash              String
+  logIndex            Int
+  blockNumber         BigInt
+  createdAt           DateTime @default(now())
+
+  round DrawRound @relation(fields: [roundId], references: [id])
+
+  @@unique([txHash, logIndex])
+  @@index([roundId])
+  @@index([buyer])
+}
+
+model DrawTopUp {
+  id          String   @id @default(cuid())
+  roundId     BigInt
+  payer       String
+  amount      Decimal  @db.Decimal(78, 0)
+  txHash      String
+  logIndex    Int
+  blockNumber BigInt
+  createdAt   DateTime @default(now())
+
+  round DrawRound @relation(fields: [roundId], references: [id])
+
+  @@unique([txHash, logIndex])
+  @@index([roundId])
+}
+
+model ChainEvent {
+  id          String   @id @default(cuid())
+  name        String
+  txHash      String
+  logIndex    Int
+  blockNumber BigInt
+  payload     Json
+  createdAt   DateTime @default(now())
+
+  @@unique([txHash, logIndex])
+  @@index([name])
+  @@index([blockNumber])
+}
+
+model AppConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  actor     String
+  payload   Json
+  createdAt DateTime @default(now())
+}

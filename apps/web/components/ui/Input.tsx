@@ -1,0 +1,1 @@
+import { InputHTMLAttributes } from "react"; import { cn } from "../../lib/utils"; export function Input(props: InputHTMLAttributes<HTMLInputElement>) { return <input {...props} className={cn("w-full rounded-2xl border-[3px] border-[#020202] bg-white px-4 py-3 outline-none focus:shadow-[3px_3px_0_#020202]", props.className)} />; }

@@ -1,0 +1,1 @@
+import { AdminSidebar } from "./AdminSidebar"; export function AdminShell({ title, children }: { title:string; children:React.ReactNode }){return <main className="pt-28 pb-16"><div className="mx-auto grid max-w-7xl gap-6 px-4 lg:grid-cols-[260px_1fr]"><AdminSidebar/><section><h1 className="display-text mb-6 text-5xl">{title}</h1>{children}</section></div></main>}

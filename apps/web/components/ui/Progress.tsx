@@ -1,0 +1,1 @@
+export function Progress({ value, max=100 }: { value: number; max?: number }) { const pct=Math.max(0,Math.min(100,(value/max)*100)); return <div className="h-4 rounded-full border-2 border-[#020202] bg-white overflow-hidden"><div className="h-full bg-[#bc352a]" style={{width:`${pct}%`}} /></div>; }

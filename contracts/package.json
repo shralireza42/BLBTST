@@ -1,0 +1,22 @@
+{
+  "name": "@blobby/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat run scripts/verify-daily-draw.ts",
+    "typecheck": "tsc --noEmit",
+    "deploy:bsc": "hardhat run scripts/deploy.ts --network bsc"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "latest",
+    "dotenv": "latest"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^4.0.11",
+    "@nomicfoundation/hardhat-network-helpers": "^3.0.8",
+    "hardhat": "latest",
+    "typescript": "latest"
+  }
+}

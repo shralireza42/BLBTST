@@ -1,0 +1,1 @@
+export function Modal({ children }: { children: React.ReactNode }) { return <div className="rounded-[2rem] border-[3px] border-[#020202] bg-[#fff8df] p-6 shadow-[6px_6px_0_#020202]">{children}</div>; }

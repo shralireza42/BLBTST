@@ -1,0 +1,30 @@
+{
+  "name": "blobby-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "contracts",
+    "apps/api",
+    "apps/worker",
+    "apps/web",
+    "apps/realtime",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "prisma:generate": "npm run prisma:generate -w apps/api",
+    "prebuild": "npm run prisma:generate",
+    "pretypecheck": "npm run prisma:generate",
+    "dev": "pnpm --parallel --filter @blobby/api --filter @blobby/worker --filter @blobby/web --filter @blobby/realtime dev",
+    "db:migrate": "pnpm --filter @blobby/api prisma:migrate",
+    "db:generate": "pnpm --filter @blobby/api prisma:generate"
+  },
+  "devDependencies": {
+    "forge-std": "^1.1.2",
+    "typescript": "latest"
+  },
+  "packageManager": "pnpm@10.0.0"
+}

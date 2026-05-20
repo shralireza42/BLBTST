@@ -1,0 +1,2 @@
+import { cn } from "../../lib/utils";
+export function Badge({ children, tone="cream", className }: { children: React.ReactNode; tone?: "cream"|"red"|"green"|"dark"; className?: string }) { return <span className={cn("inline-flex rounded-full border-2 border-[#020202] px-3 py-1 text-xs font-black italic", tone==="cream"&&"bg-[#fff8df]", tone==="red"&&"bg-[#bc352a] text-white", tone==="green"&&"bg-lime-200", tone==="dark"&&"bg-[#020202] text-[#fff8df]", className)}>{children}</span>; }

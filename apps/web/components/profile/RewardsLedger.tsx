@@ -1,0 +1,1 @@
+import { Card } from "../ui/Card"; export function RewardsLedger(){return <Card><h3 className="display-text text-2xl">Rewards Ledger</h3>{['Draw prize','Task reward','Referral reward'].map(x=><div key={x} className="mt-2 rounded-xl bg-white p-3 border-2 border-[#020202]">{x} · Pending</div>)}</Card>}

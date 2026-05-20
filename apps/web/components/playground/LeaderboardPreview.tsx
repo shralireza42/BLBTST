@@ -1,0 +1,1 @@
+import { Card } from "../ui/Card"; export function LeaderboardPreview(){return <Card><h3 className="display-text text-2xl">Leaderboard Preview</h3>{['BlobLord','DashBlob','Stackie'].map((n,i)=><div key={n} className="mt-2 flex justify-between rounded-xl bg-white p-3"><span>#{i+1} {n}</span><b>{(3-i)*1000}</b></div>)}</Card>}

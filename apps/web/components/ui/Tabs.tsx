@@ -1,0 +1,1 @@
+"use client"; export function Tabs({ tabs }: { tabs: string[] }) { return <div className="flex flex-wrap gap-2">{tabs.map(t=><button key={t} className="rounded-full border-2 border-[#020202] bg-white px-4 py-2 text-sm font-black italic">{t}</button>)}</div>; }

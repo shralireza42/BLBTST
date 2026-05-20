@@ -1,0 +1,1 @@
+import { Card } from "../ui/Card"; export function WinnerSlots(){return <Card><h3 className="display-text text-2xl">Winner Slots</h3><div className="mt-4 grid grid-cols-5 gap-2 sm:grid-cols-10">{Array.from({length:150},(_,i)=><div key={i} className="rounded-xl border-2 border-[#020202] bg-white p-2 text-center text-xs">#{i+1}</div>)}</div></Card>}

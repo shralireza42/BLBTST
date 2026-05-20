@@ -1,0 +1,18 @@
+"use client";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { api } from "../api/client";
+export const useCurrentDraw = () => useQuery({ queryKey:["draw","current"], queryFn: api.currentDraw });
+export const useTicketQuote = (quantity:number) => useQuery({ queryKey:["draw","quote",quantity], queryFn:()=>api.ticketQuote(quantity) });
+export const useMyDrawStatus = (wallet?:string) => useQuery({ queryKey:["draw","my",wallet], queryFn:()=>api.myDrawStatus(wallet!), enabled:!!wallet });
+export const useRoundHistory = () => useQuery({ queryKey:["draw","history"], queryFn: api.roundHistory });
+export const useRoundAudit = (id:string) => useQuery({ queryKey:["verify","round",id], queryFn:()=>api.roundAudit(id), enabled:!!id });
+export const useCurrentJackpot = () => useQuery({ queryKey:["jackpot","current"], queryFn: api.currentJackpot });
+export const useJackpotHistory = () => useQuery({ queryKey:["jackpot","history"], queryFn: api.jackpotHistory });
+export const useTasks = () => useQuery({ queryKey:["tasks"], queryFn: api.tasks });
+export const useClaimTask = () => useMutation({ mutationFn: api.claimTask });
+export const useReferralStats = () => useQuery({ queryKey:["referrals"], queryFn: api.referralStats });
+export const useProfile = () => useQuery({ queryKey:["profile"], queryFn: api.profile });
+export const useRewardsLedger = () => useQuery({ queryKey:["rewards"], queryFn: api.rewardsLedger });
+export const useAdminDrawHealth = () => useQuery({ queryKey:["admin","draw-health"], queryFn: api.adminDrawHealth });
+export const useAdminJackpotHealth = () => useQuery({ queryKey:["admin","jackpot"], queryFn: api.adminJackpotHealth });
+export const useContractSyncStatus = () => useQuery({ queryKey:["admin","sync"], queryFn: api.contractSyncStatus });
