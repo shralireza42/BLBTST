@@ -56,9 +56,8 @@ pnpm --filter @blobby/realtime dev
 Deploy only from the project owner's local machine:
 
 ```bash
-cp contracts/.env.example contracts/.env
-# Fill placeholders locally.
-npm run deploy:bsc -w contracts
+cp packages/contracts/.env.example packages/contracts/.env
+# Fill placeholders locally. Never commit real keys or secrets.
 ```
 
 After deployment:
@@ -67,6 +66,83 @@ After deployment:
 2. Grant `OPERATOR_ROLE` / `TOP_UP_ROLE` to the worker wallet if it differs from the deployer.
 3. Approve the Daily Draw contract to spend operational top-up BLOBBIE from the worker/top-up wallet.
 4. Set API and worker `.env` values with deployed addresses and secrets.
+
+### Foundry deployment commands
+
+Run all commands from `packages/contracts`.
+
+Build and test:
+
+```bash
+forge build
+forge test
+```
+
+Dry-run deployment against BSC testnet RPC without broadcasting:
+
+```bash
+source .env
+forge script script/DeployBlobbieDraw.s.sol:DeployBlobbieDraw \
+  --rpc-url "$BSC_TESTNET_RPC_URL" \
+  -vvvv
+```
+
+Broadcast to BSC testnet:
+
+```bash
+source .env
+forge script script/DeployBlobbieDraw.s.sol:DeployBlobbieDraw \
+  --rpc-url "$BSC_TESTNET_RPC_URL" \
+  --broadcast \
+  -vvvv
+```
+
+Verify contracts on BscScan after testnet deployment:
+
+```bash
+forge verify-contract "$PRICE_ADAPTER_CONTRACT_ADDRESS" src/BlobbiePriceAdapter.sol:BlobbiePriceAdapter \
+  --chain-id 97 \
+  --etherscan-api-key "$BSCSCAN_API_KEY"
+
+forge verify-contract "$JACKPOT_VAULT_CONTRACT_ADDRESS" src/BlobbieJackpotVault.sol:BlobbieJackpotVault \
+  --chain-id 97 \
+  --etherscan-api-key "$BSCSCAN_API_KEY"
+
+forge verify-contract "$TREASURY_ROUTER_CONTRACT_ADDRESS" src/BlobbieTreasuryRouter.sol:BlobbieTreasuryRouter \
+  --chain-id 97 \
+  --etherscan-api-key "$BSCSCAN_API_KEY"
+
+forge verify-contract "$DAILY_DRAW_CONTRACT_ADDRESS" src/BlobbieDailyDraw.sol:BlobbieDailyDraw \
+  --chain-id 97 \
+  --etherscan-api-key "$BSCSCAN_API_KEY"
+```
+
+Add the deployed `DailyDraw` address as a Chainlink VRF consumer in the Chainlink VRF dashboard
+for `CHAINLINK_VRF_SUBSCRIPTION_ID` before expecting randomness fulfillment.
+
+Run post-deploy config verification:
+
+```bash
+source .env
+forge script script/VerifyConfig.s.sol:VerifyConfig \
+  --rpc-url "$BSC_TESTNET_RPC_URL" \
+  -vvvv
+```
+
+Broadcast to BSC mainnet only after testnet deployment, BscScan verification, VRF consumer setup,
+and post-deploy verification succeed:
+
+```bash
+source .env
+forge script script/DeployBlobbieDraw.s.sol:DeployBlobbieDraw \
+  --rpc-url "$BSC_RPC_URL" \
+  --broadcast \
+  -vvvv
+
+forge script script/VerifyConfig.s.sol:VerifyConfig \
+  --rpc-url "$BSC_RPC_URL" \
+  -vvvv
+```
 
 ## Worker automation
 

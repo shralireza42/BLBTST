@@ -23,6 +23,7 @@
     "db:generate": "pnpm --filter @blobby/api prisma:generate"
   },
   "devDependencies": {
+    "forge-std": "^1.1.2",
     "typescript": "latest"
   },
   "packageManager": "pnpm@10.0.0"
