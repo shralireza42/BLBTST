@@ -41,8 +41,11 @@ interface IBlobbieJackpotVault {
         uint256 indexed cycleId, address indexed user, uint256 ticketCount, TicketExclusion indexed exclusion
     );
     event JackpotWalletStatusUpdated(address indexed user, bool banned, bool fraudRejected);
+    event JackpotThresholdReached(uint256 indexed cycleId, uint256 reserveBalance, uint256 thresholdAmount);
     event JackpotRandomnessRequested(uint256 indexed cycleId, uint256 indexed roundId, uint256 indexed requestId);
+    event JackpotWinnerSelected(uint256 indexed cycleId, address indexed winner, uint256 amount);
     event JackpotPaid(uint256 indexed cycleId, address indexed winner, uint256 amount);
+    event JackpotCycleReset(uint256 indexed previousCycleId, uint256 indexed newCycleId);
     event EmergencyRecovery(address indexed token, address indexed recipient, uint256 amount, string reason);
 
     error InvalidConfig();

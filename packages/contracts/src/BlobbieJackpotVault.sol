@@ -33,6 +33,7 @@ contract BlobbieJackpotVault is AccessControl, Pausable, ReentrancyGuard, IBlobb
     mapping(uint256 cycleId => JackpotCycle cycle) private _cycles;
     mapping(uint256 cycleId => EntryRange[] ranges) private _entryRanges;
     mapping(uint256 cycleId => mapping(address user => uint256 ticketCount)) public eligibleTicketsByUser;
+    mapping(uint256 cycleId => bool emitted) public thresholdReachedEmitted;
     mapping(address user => bool banned) public bannedWallet;
     mapping(address user => bool fraudRejected) public fraudRejectedWallet;
 
@@ -108,6 +109,7 @@ contract BlobbieJackpotVault is AccessControl, Pausable, ReentrancyGuard, IBlobb
         cycle.totalContributed += amount;
         _totalReserve += amount;
         emit JackpotContributionReceived(currentCycleId, msg.sender, amount);
+        _emitThresholdReachedIfNeeded(cycle);
     }
 
     function recordEligibleTickets(address user, uint256 ticketCount) external onlyRole(DRAW_ROLE) whenNotPaused {
@@ -156,6 +158,7 @@ contract BlobbieJackpotVault is AccessControl, Pausable, ReentrancyGuard, IBlobb
         if (cycle.eligibleTicketCount == 0) revert NoEligibleEntries();
         if (cycle.reserveBalance < jackpotThresholdInBlobbie()) revert ThresholdNotMet();
 
+        _emitThresholdReachedIfNeeded(cycle);
         cycle.randomnessRequested = true;
         cycle.randomnessRequestId = requestId;
         emit JackpotRandomnessRequested(cycleId, roundId, requestId);
@@ -175,6 +178,7 @@ contract BlobbieJackpotVault is AccessControl, Pausable, ReentrancyGuard, IBlobb
 
         winner = _selectEligibleWinner(cycleId, randomness);
         amount = cycle.reserveBalance;
+        emit JackpotWinnerSelected(cycleId, winner, amount);
         cycle.reserveBalance = 0;
         cycle.winner = winner;
         cycle.paidAmount = amount;
@@ -184,7 +188,8 @@ contract BlobbieJackpotVault is AccessControl, Pausable, ReentrancyGuard, IBlobb
 
         blobbyToken.safeTransfer(winner, amount);
         emit JackpotPaid(cycleId, winner, amount);
-        _startNextCycle();
+        uint256 nextCycleId = _startNextCycle();
+        emit JackpotCycleReset(cycleId, nextCycleId);
     }
 
     function emergencyRecoverUnsupportedToken(address token, address recipient, uint256 amount, string calldata reason)
@@ -232,10 +237,11 @@ contract BlobbieJackpotVault is AccessControl, Pausable, ReentrancyGuard, IBlobb
         return rawConfig;
     }
 
-    function _startNextCycle() internal {
+    function _startNextCycle() internal returns (uint256 cycleId) {
         currentCycleId += 1;
-        _cycles[currentCycleId] = JackpotCycle({
-            id: currentCycleId,
+        cycleId = currentCycleId;
+        _cycles[cycleId] = JackpotCycle({
+            id: cycleId,
             startedAt: block.timestamp,
             endedAt: 0,
             reserveBalance: 0,
@@ -247,7 +253,15 @@ contract BlobbieJackpotVault is AccessControl, Pausable, ReentrancyGuard, IBlobb
             randomnessRequested: false,
             settled: false
         });
-        emit JackpotCycleStarted(currentCycleId, block.timestamp);
+        emit JackpotCycleStarted(cycleId, block.timestamp);
+    }
+
+    function _emitThresholdReachedIfNeeded(JackpotCycle storage cycle) internal {
+        uint256 thresholdAmount = jackpotThresholdInBlobbie();
+        if (!thresholdReachedEmitted[cycle.id] && cycle.reserveBalance >= thresholdAmount) {
+            thresholdReachedEmitted[cycle.id] = true;
+            emit JackpotThresholdReached(cycle.id, cycle.reserveBalance, thresholdAmount);
+        }
     }
 
     function _selectEligibleWinner(uint256 cycleId, uint256 randomness) internal view returns (address) {
