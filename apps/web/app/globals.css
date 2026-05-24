@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --blobbie-bg: #f7f8df;
+  --blobbie-bg: #1c1d23;
   --blobbie-ink: #020202;
-  --blobbie-cream: #fff8df;
+  --blobbie-cream: #f7f8df;
   --blobbie-red: #bc352a;
   --blobbie-peach: #ffc4ad;
   --blobbie-line: #020202;
@@ -14,17 +14,41 @@ html { scroll-behavior: smooth; }
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 20% 10%, rgba(255,196,173,.55), transparent 28rem),
-    radial-gradient(circle at 80% 0%, rgba(255,248,223,.95), transparent 24rem),
+    radial-gradient(circle at 15% 5%, rgba(247, 248, 223, 0.12), transparent 26rem),
+    radial-gradient(circle at 80% 0%, rgba(255, 196, 173, 0.10), transparent 24rem),
     var(--blobbie-bg);
   color: var(--blobbie-ink);
   overflow-x: hidden;
 }
 button, input, select, textarea { font: inherit; }
 ::selection { background: var(--blobbie-red); color: var(--blobbie-cream); }
-.blobbie-outline { border: 4px solid var(--blobbie-line); box-shadow: 8px 8px 0 var(--blobbie-line); }
+.blobbie-outline { border: 5px solid var(--blobbie-line); box-shadow: 8px 8px 0 var(--blobbie-line); }
 .blobbie-soft { border: 3px solid var(--blobbie-line); box-shadow: 5px 5px 0 var(--blobbie-line); }
-.display-text { font-family: var(--font-dela); color: var(--blobbie-ink); letter-spacing: -0.04em; }
-.body-text { font-family: var(--font-bricolage); font-style: italic; font-weight: 700; color: var(--blobbie-ink); }
+.display-text,
+h1 {
+  font-family: var(--font-dela);
+  color: var(--blobbie-ink);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+}
+.body-text,
+h6,
+p,
+li,
+a,
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-bricolage);
+  font-style: italic;
+  font-weight: 800;
+  color: var(--blobbie-ink);
+}
+.page-panel {
+  background: var(--blobbie-cream);
+  border: 5px solid var(--blobbie-line);
+  box-shadow: 8px 8px 0 var(--blobbie-line);
+}
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }

@@ -1,4 +1,55 @@
 "use client";
-import Image from "next/image"; import Link from "next/link"; import { Menu, X } from "lucide-react"; import { useState } from "react"; import { WalletButton } from "../ui/WalletButton"; import { Button } from "../ui/Button";
-const nav=[['Draw','/draw'],['Jackpot','/jackpot'],['Playground','/playground'],['Tasks','/tasks'],['Verify','/verify']];
-export function Header(){const[open,setOpen]=useState(false);return <header className="fixed left-0 right-0 top-0 z-50 px-2 pt-2"><div className="mx-auto max-w-7xl rounded-[2rem] border-[4px] border-[#020202] bg-[#f7f8df]/95 px-3 py-2 shadow-[0_4px_0_#020202] backdrop-blur"><div className="flex items-center justify-between gap-3"><Link href="/" className="flex items-center gap-3"><span className="relative h-12 w-12 overflow-hidden rounded-full border-[3px] border-[#020202] bg-[#fff8df]"><Image src="/LOGO.png" alt="BLOBBIE logo" fill className="object-cover" /></span><span className="display-text text-2xl sm:text-3xl">SBLOBBIE</span></Link><nav className="hidden items-center gap-5 lg:flex">{nav.map(([label,href])=><Link key={href} className="text-sm font-black italic hover:underline" href={href}>{label}</Link>)}</nav><div className="hidden items-center gap-2 md:flex"><Button href="/tasks">Airdrop</Button><WalletButton /></div><button className="rounded-full border-[3px] border-[#020202] p-2 md:hidden" onClick={()=>setOpen(!open)}>{open?<X/>:<Menu/>}</button></div>{open&&<div className="grid gap-2 border-t-2 border-[#020202] pt-3 md:hidden">{nav.map(([label,href])=><Link onClick={()=>setOpen(false)} key={href} href={href} className="rounded-2xl bg-white px-4 py-3 font-black italic">{label}</Link>)}<WalletButton /></div>}</div></header>}
+import Image from "next/image";
+import Link from "next/link";
+import { Menu, X } from "lucide-react";
+import { useState } from "react";
+import { WalletButton } from "../ui/WalletButton";
+import { Button } from "../ui/Button";
+
+const nav = [["Draw", "/draw"], ["Jackpot", "/jackpot"], ["Playground", "/playground"], ["Tasks", "/tasks"], ["Verify", "/verify"]];
+
+export function Header() {
+  const [open, setOpen] = useState(false);
+  return (
+    <header className="fixed left-0 right-0 top-0 z-50 px-2 pt-2 sm:px-4 sm:pt-4">
+      <div className="mx-auto max-w-7xl rounded-[2.1rem] border-[5px] border-[#020202] bg-[#f7f8df] px-3 py-2 shadow-[0_5px_0_#020202]">
+        <div className="flex min-h-[58px] items-center justify-between gap-3">
+          <Link href="/" className="flex min-w-0 items-center gap-3">
+            <span className="relative h-[54px] w-[54px] shrink-0 overflow-hidden rounded-full border-[3px] border-[#020202] bg-[#fff8df] sm:h-[58px] sm:w-[58px]">
+              <Image src="/LOGO.png" alt="BLOBBIE logo" fill priority className="object-cover" />
+            </span>
+            <span className="display-text truncate text-2xl leading-none sm:text-3xl">SBLOBBIE</span>
+          </Link>
+
+          <nav className="hidden items-center gap-6 lg:flex">
+            {nav.map(([label, href]) => (
+              <Link key={href} className="text-[15px] font-black italic hover:underline" href={href}>
+                {label}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="hidden items-center gap-2 md:flex">
+            <Button href="/tasks" className="px-6 py-3">Airdrop</Button>
+            <WalletButton />
+          </div>
+
+          <button className="rounded-full border-[3px] border-[#020202] bg-[#fff8df] p-2 md:hidden" onClick={() => setOpen(!open)} aria-label="Open menu">
+            {open ? <X /> : <Menu />}
+          </button>
+        </div>
+
+        {open && (
+          <div className="grid gap-2 border-t-2 border-[#020202] pt-3 md:hidden">
+            {nav.map(([label, href]) => (
+              <Link onClick={() => setOpen(false)} key={href} href={href} className="rounded-2xl bg-white px-4 py-3 font-black italic">
+                {label}
+              </Link>
+            ))}
+            <WalletButton />
+          </div>
+        )}
+      </div>
+    </header>
+  );
+}
