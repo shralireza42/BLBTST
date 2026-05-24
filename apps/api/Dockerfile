@@ -12,7 +12,9 @@ FROM deps AS build
 COPY tsconfig.base.json ./
 COPY apps/api apps/api
 COPY packages/database packages/database
-RUN pnpm --filter @blobby/api prisma:generate && pnpm --filter @blobby/api build
+RUN pnpm --filter @blobby/api prisma:generate \
+  && pnpm --filter @blobby/database build \
+  && pnpm --filter @blobby/api build
 
 FROM node:22-alpine AS runner
 WORKDIR /app

@@ -14,7 +14,9 @@ COPY tsconfig.base.json ./
 COPY apps/api apps/api
 COPY apps/worker apps/worker
 COPY packages/database packages/database
-RUN pnpm --filter @blobby/api prisma:generate && pnpm --filter @blobby/worker build
+RUN pnpm --filter @blobby/api prisma:generate \
+  && pnpm --filter @blobby/database build \
+  && pnpm --filter @blobby/worker build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
