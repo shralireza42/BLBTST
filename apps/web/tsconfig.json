@@ -25,7 +25,8 @@
     ],
     "types": [
       "node"
-    ]
+    ],
+    "declaration": false
   },
   "include": [
     "next-env.d.ts",

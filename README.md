@@ -141,6 +141,8 @@ The default local services are:
 - PostgreSQL: `localhost:5432`
 - Redis: `localhost:6379`
 
+For free-tier hosting preparation, see `docs/free-hosting.md` and `.env.testnet.example`.
+
 ---
 
 ## 5. Environment variables
