@@ -18,13 +18,37 @@ export function useBlobbieAllowance() {
 export function useApproveBlobbie() {
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
-  return { ...write, receipt, approve: (amount: bigint) => write.writeContract({ address: asAddress(addresses.blobbyToken), abi: erc20Abi, functionName: "approve", args: [asAddress(addresses.dailyDraw), amount] }) };
+  return {
+    data: write.data,
+    error: write.error,
+    isPending: write.isPending,
+    receipt,
+    approve: (amount: bigint) =>
+      write.writeContract({
+        address: asAddress(addresses.blobbyToken),
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [asAddress(addresses.dailyDraw), amount]
+      })
+  };
 }
 
 export function useBuyTickets() {
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
-  return { ...write, receipt, buy: (quantity: number, maxBlobbieCost: bigint) => write.writeContract({ address: asAddress(addresses.dailyDraw), abi: dailyDrawAbi, functionName: "buyTickets", args: [BigInt(quantity), maxBlobbieCost] }) };
+  return {
+    data: write.data,
+    error: write.error,
+    isPending: write.isPending,
+    receipt,
+    buy: (quantity: number, maxBlobbieCost: bigint) =>
+      write.writeContract({
+        address: asAddress(addresses.dailyDraw),
+        abi: dailyDrawAbi,
+        functionName: "buyTickets",
+        args: [BigInt(quantity), maxBlobbieCost]
+      })
+  };
 }
 
 export function useCurrentDrawContractState() {
